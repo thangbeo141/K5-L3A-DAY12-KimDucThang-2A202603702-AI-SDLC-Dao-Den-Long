@@ -116,6 +116,38 @@ runTest("Xử lý file inputs sai định dạng trả về exit code 2", () => 
   }
 });
 
+// 6. Safe Zone Protection Test (Shades cannot damage player inside lit lantern safe zone)
+runTest("Bảo vệ trong Vùng An Toàn (Safe Zone quanh đèn đã thắp)", () => {
+  const safeScenario = path.join(TEMP_DIR, 'scenario_safe.json');
+  fs.writeFileSync(safeScenario, JSON.stringify({
+    player: { pos: [0, 0, 1.0], carried: 0, flames: 3 },
+    random_motes: false,
+    random_shades: false,
+    motes: [],
+    shades: [{ id: "S1", pos: [0, 0, 1.5] }], // Within hit distance (0.5m < 1.2m)
+    lanterns: [{ id: "L1", pos: [0, 0, 0], lit: true, deposited: 3 }] // Player is 1.0m from lit lantern (< 4.0m safe_radius)
+  }));
+  const outPath = path.join(TEMP_DIR, 'out_safe.jsonl');
+
+  execSync(`node src/headless.js --seed 1 --night 1 --scenario "${safeScenario}" --ticks 10 --out "${outPath}"`, { cwd: ROOT_DIR });
+
+  const lines = fs.readFileSync(outPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const hitEvent = lines.find(l => l.type === 'event' && l.name === 'player_hit');
+  if (hitEvent) {
+    throw new Error("Người chơi đang đứng trong Vùng An Toàn nhưng vẫn bị Bóng Mực đánh trúng!");
+  }
+});
+
+// 7. CLI --arg=value syntax support
+runTest("Hỗ trợ cú pháp đối số dòng lệnh dạng --arg=value", () => {
+  const outPath = path.join(TEMP_DIR, 'out_syntax.jsonl');
+  execSync(`node src/headless.js --seed=42 --night=1 --ticks=10 --out="${outPath}"`, { cwd: ROOT_DIR });
+
+  if (!fs.existsSync(outPath) || fs.readFileSync(outPath, 'utf8').trim().length === 0) {
+    throw new Error("Không thể thực thi lệnh headless với cú pháp --arg=value");
+  }
+});
+
 console.log(`\n======================================================`);
 console.log(`🎉 KẾT QUẢ: Đạt ${passed}/${total} bài kiểm thử.`);
 console.log(`======================================================\n`);

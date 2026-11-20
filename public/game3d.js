@@ -500,6 +500,8 @@ function restartGame() {
   engine = new GameEngine(null, Date.now());
   engine.applyScenario(null);
   document.getElementById('message-overlay').classList.add('hidden');
+  lastTickTime = performance.now();
+  keys = {};
   syncEntities();
 }
 

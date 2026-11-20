@@ -17,9 +17,11 @@ Kết quả:
 [TEST 3] Tỏa sáng xua Bóng Mực (Pulse stun & pushback) ... PASSED
 [TEST 4] Tính tất định (Determinism: 2 lần chạy cùng seed ra output giống hệt) ... PASSED
 [TEST 5] Xử lý file inputs sai định dạng trả về exit code 2 ... PASSED
+[TEST 6] Bảo vệ trong Vùng An Toàn (Safe Zone quanh đèn đã thắp) ... PASSED
+[TEST 7] Hỗ trợ cú pháp đối số dòng lệnh dạng --arg=value ... PASSED
 
 ======================================================
-🎉 KẾT QUẢ: Đạt 5/5 bài kiểm thử.
+🎉 KẾT QUẢ: Đạt 7/7 bài kiểm thử.
 ======================================================
 ```
 

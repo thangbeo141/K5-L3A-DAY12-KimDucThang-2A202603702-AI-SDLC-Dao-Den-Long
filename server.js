@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT, 10) || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const MIME_TYPES = {
@@ -19,9 +19,11 @@ const server = http.createServer((req, res) => {
   let reqPath = req.url.split('?')[0];
   if (reqPath === '/') reqPath = '/index.html';
 
-  // Allow serving engine directly to browser
+  // Allow serving engine and contract directly to browser
   let filePath;
-  if (reqPath.startsWith('/src/')) {
+  if (reqPath === '/game.contract.json') {
+    filePath = path.join(__dirname, 'game.contract.json');
+  } else if (reqPath.startsWith('/src/')) {
     filePath = path.join(__dirname, reqPath);
   } else if (reqPath.startsWith('/node_modules/')) {
     filePath = path.join(__dirname, reqPath);
@@ -53,9 +55,30 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`=======================================================`);
-  console.log(`🏮 Đảo Đèn Lồng 3D Game Server đang chạy tại:`);
-  console.log(`👉 http://localhost:${PORT}`);
-  console.log(`=======================================================`);
+let currentPort = PORT;
+
+server.on('listening', () => {
+  const actualPort = server.address().port;
+  console.log('=======================================================');
+  console.log('🏮 Đảo Đèn Lồng 3D Game Server đang chạy tại:');
+  console.log(`👉 http://localhost:${actualPort}`);
+  console.log('=======================================================');
 });
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.warn(`Port ${currentPort} in use, trying next port...`);
+    currentPort += 1;
+    if (currentPort - PORT < 10) {
+      server.listen(currentPort);
+    } else {
+      console.error('No available ports found.');
+      process.exit(1);
+    }
+  } else {
+    console.error('Server error:', err);
+    process.exit(1);
+  }
+});
+
+server.listen(currentPort);

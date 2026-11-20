@@ -143,22 +143,13 @@ class GameEngine {
       if (scenario.player.flames !== undefined) this.player.flames = scenario.player.flames;
     }
 
-    if (scenario.lanterns) {
-      for (const sl of scenario.lanterns) {
-        const target = this.lanterns.find(l => l.id === sl.id);
-        if (target) {
-          if (sl.pos) target.pos = [...sl.pos];
-          if (sl.deposited !== undefined) target.deposited = sl.deposited;
-          if (sl.lit !== undefined) target.lit = sl.lit;
-        } else {
-          this.lanterns.push({
-            id: sl.id,
-            pos: sl.pos ? [...sl.pos] : [0, 0, 0],
-            deposited: sl.deposited || 0,
-            lit: sl.lit || false
-          });
-        }
-      }
+    if (scenario.lanterns !== undefined) {
+      this.lanterns = scenario.lanterns.map((sl, idx) => ({
+        id: sl.id || `L${idx + 1}`,
+        pos: sl.pos ? [...sl.pos] : [0, 0, 0],
+        deposited: sl.deposited || 0,
+        lit: sl.lit !== undefined ? sl.lit : ((sl.deposited || 0) >= this.tuning.lantern_cost)
+      }));
     }
 
     // Motes
@@ -175,10 +166,11 @@ class GameEngine {
     // Shades
     if (scenario.shades !== undefined) {
       this.shades = scenario.shades.map((s, idx) => {
-        const id = s.id || `S${idx + 1}`;
+        const pos = Array.isArray(s) ? s : s.pos;
+        const id = (!Array.isArray(s) && s.id) ? s.id : `S${idx + 1}`;
         return {
           id,
-          pos: [...s.pos],
+          pos: [pos[0], pos[1] || 0, pos[2]],
           state: s.state || "chase",
           stun_timer: 0
         };
@@ -331,7 +323,7 @@ class GameEngine {
             });
 
             // Check Win Condition
-            const all_lit = this.lanterns.every(l => l.lit);
+            const all_lit = this.lanterns.length > 0 && this.lanterns.every(l => l.lit);
             if (all_lit && this.state === "playing") {
               this.state = "won";
               const time_bonus = Math.round(this.time_left_s * this.tuning.score.per_second_left);
@@ -423,9 +415,10 @@ class GameEngine {
           }
         }
 
-        // Hit player check
+        // Hit player check (player is safe inside safe_radius of any lit lantern)
+        const isPlayerSafe = this.lanterns.some(l => l.lit && Math.hypot(this.player.pos[0] - l.pos[0], this.player.pos[2] - l.pos[2]) < this.tuning.safe_radius);
         const hit_dist = Math.hypot(shade.pos[0] - this.player.pos[0], shade.pos[2] - this.player.pos[2]);
-        if (hit_dist <= this.tuning.shade_hit_radius && this.state === "playing") {
+        if (!isPlayerSafe && hit_dist <= this.tuning.shade_hit_radius && this.state === "playing") {
           if (this.player.invuln_timer <= 0) {
             this.player.flames -= 1;
             this.player.invuln_timer = Math.round(this.tuning.invuln_s * 60);

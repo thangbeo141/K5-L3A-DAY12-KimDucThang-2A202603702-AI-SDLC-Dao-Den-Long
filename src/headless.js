@@ -21,21 +21,28 @@ function parseArgs(args) {
   };
 
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === '--seed' && i + 1 < args.length) {
-      options.seed = parseInt(args[++i], 10);
-    } else if (arg === '--night' && i + 1 < args.length) {
-      options.night = parseInt(args[++i], 10);
-    } else if (arg === '--scenario' && i + 1 < args.length) {
-      options.scenario = args[++i];
-    } else if (arg === '--inputs' && i + 1 < args.length) {
-      options.inputs = args[++i];
-    } else if (arg === '--ticks' && i + 1 < args.length) {
-      options.ticks = parseInt(args[++i], 10);
-    } else if (arg === '--out' && i + 1 < args.length) {
-      options.out = args[++i];
-    } else if (arg === '--snapshot-every' && i + 1 < args.length) {
-      options.snapshot_every = parseInt(args[++i], 10);
+    let arg = args[i];
+    let val = null;
+    if (arg.includes('=')) {
+      const parts = arg.split('=');
+      arg = parts[0];
+      val = parts.slice(1).join('=');
+    }
+
+    if (arg === '--seed') {
+      options.seed = parseInt(val !== null ? val : args[++i], 10);
+    } else if (arg === '--night') {
+      options.night = parseInt(val !== null ? val : args[++i], 10);
+    } else if (arg === '--scenario') {
+      options.scenario = val !== null ? val : args[++i];
+    } else if (arg === '--inputs') {
+      options.inputs = val !== null ? val : args[++i];
+    } else if (arg === '--ticks') {
+      options.ticks = parseInt(val !== null ? val : args[++i], 10);
+    } else if (arg === '--out') {
+      options.out = val !== null ? val : args[++i];
+    } else if (arg === '--snapshot-every') {
+      options.snapshot_every = parseInt(val !== null ? val : args[++i], 10);
     }
   }
 
