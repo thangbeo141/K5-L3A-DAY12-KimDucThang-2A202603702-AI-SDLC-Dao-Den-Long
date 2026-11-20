@@ -148,6 +148,89 @@ runTest("Hỗ trợ cú pháp đối số dòng lệnh dạng --arg=value", () =
   }
 });
 
+// ======================================================
+// PHẦN MỚI: KIỂM THỬ TÍNH NĂNG GIAI ĐOẠN 2 (TICKET-02)
+// ======================================================
+
+// 8. Dash Test
+runTest("[Phase 2] Kỹ năng Lướt (Dash)", () => {
+  const scenario = path.join(ROOT_DIR, 'tests', 'scenarios', 'scenario_dash.json');
+  const inputs = path.join(ROOT_DIR, 'tests', 'scenarios', 'inputs_dash.json');
+  const outPath = path.join(TEMP_DIR, 'out_dash.jsonl');
+
+  execSync(`node src/headless.js --seed 100 --night 1 --scenario "${scenario}" --inputs "${inputs}" --ticks 15 --out "${outPath}"`, { cwd: ROOT_DIR });
+  const lines = fs.readFileSync(outPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const dashEvt = lines.find(l => l.type === 'event' && l.name === 'dash');
+  if (!dashEvt) throw new Error("Không phát sinh sự kiện dash khi kích hoạt Lướt");
+});
+
+// 9. Charm Test
+runTest("[Phase 2] Nhặt Bùa Gió (Wind Charm)", () => {
+  const scenario = path.join(ROOT_DIR, 'tests', 'scenarios', 'scenario_charm.json');
+  const inputs = path.join(ROOT_DIR, 'tests', 'scenarios', 'inputs_charm.json');
+  const outPath = path.join(TEMP_DIR, 'out_charm.jsonl');
+
+  execSync(`node src/headless.js --seed 100 --night 2 --scenario "${scenario}" --inputs "${inputs}" --ticks 15 --out "${outPath}"`, { cwd: ROOT_DIR });
+  const lines = fs.readFileSync(outPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const charmEvt = lines.find(l => l.type === 'event' && l.name === 'charm_picked');
+  if (!charmEvt) throw new Error("Không phát sinh sự kiện charm_picked");
+  if (charmEvt.data.charm_id !== 'C1') throw new Error(`charm_id kỳ vọng C1, nhận ${charmEvt.data.charm_id}`);
+});
+
+// 10. Drifter Steal & Drop Test
+runTest("[Phase 2] Gió Lạc cướp đom đóm & Tỏa Sáng làm rơi lại đồ", () => {
+  const scenario = path.join(ROOT_DIR, 'tests', 'scenarios', 'scenario_drifter.json');
+  const inputs = path.join(ROOT_DIR, 'tests', 'scenarios', 'inputs_drifter.json');
+  const outPath = path.join(TEMP_DIR, 'out_drifter.jsonl');
+
+  execSync(`node src/headless.js --seed 100 --night 2 --scenario "${scenario}" --inputs "${inputs}" --ticks 10 --out "${outPath}"`, { cwd: ROOT_DIR });
+  const lines = fs.readFileSync(outPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const stealEvt = lines.find(l => l.type === 'event' && l.name === 'drifter_steal');
+  const dropEvt = lines.find(l => l.type === 'event' && l.name === 'drifter_drop');
+  if (!stealEvt) throw new Error("Không phát sinh sự kiện drifter_steal");
+  if (stealEvt.data.amount !== 3) throw new Error(`stolen amount kỳ vọng 3, nhận ${stealEvt.data.amount}`);
+  if (!dropEvt) throw new Error("Không phát sinh sự kiện drifter_drop khi dùng Tỏa Sáng trúng Gió Lạc");
+});
+
+// 11. Pause / Resume Test
+runTest("[Phase 2] Tạm dừng (Pause) & Tiếp tục (Resume)", () => {
+  const scenario = path.join(ROOT_DIR, 'tests', 'scenarios', 'scenario_pause.json');
+  const inputs = path.join(ROOT_DIR, 'tests', 'scenarios', 'inputs_pause.json');
+  const outPath = path.join(TEMP_DIR, 'out_pause.jsonl');
+
+  execSync(`node src/headless.js --seed 100 --night 1 --scenario "${scenario}" --inputs "${inputs}" --ticks 10 --out "${outPath}"`, { cwd: ROOT_DIR });
+  const lines = fs.readFileSync(outPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const pausedEvt = lines.find(l => l.type === 'event' && l.name === 'paused');
+  const resumedEvt = lines.find(l => l.type === 'event' && l.name === 'resumed');
+  if (!pausedEvt) throw new Error("Không phát sinh sự kiện paused");
+  if (!resumedEvt) throw new Error("Không phát sinh sự kiện resumed");
+});
+
+// 12. Fall off island Test
+runTest("[Phase 2] Rơi khỏi đảo (Y < -10)", () => {
+  const scenario = path.join(ROOT_DIR, 'tests', 'scenarios', 'scenario_fall.json');
+  const outPath = path.join(TEMP_DIR, 'out_fall.jsonl');
+
+  execSync(`node src/headless.js --seed 100 --night 1 --scenario "${scenario}" --ticks 15 --out "${outPath}"`, { cwd: ROOT_DIR });
+  const lines = fs.readFileSync(outPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const fallEvt = lines.find(l => l.type === 'event' && l.name === 'player_hit' && l.data.by === 'fall');
+  if (!fallEvt) throw new Error("Không phát sinh sự kiện player_hit do rơi khỏi đảo");
+  if (fallEvt.data.flames !== 2) throw new Error(`flames kỳ vọng 2, nhận ${fallEvt.data.flames}`);
+  if (fallEvt.data.lost !== 5) throw new Error(`lost motes kỳ vọng 5, nhận ${fallEvt.data.lost}`);
+});
+
+// 13. Full Night 21,600 ticks Performance Benchmark (DoD: <= 30s)
+runTest("[Phase 2] Hiệu năng Headless 21.600 tick (≤ 30 giây)", () => {
+  const outPath = path.join(TEMP_DIR, 'out_perf.jsonl');
+  const startMs = Date.now();
+  execSync(`node src/headless.js --seed 42 --night 1 --ticks 21600 --snapshot-every 600 --out "${outPath}"`, { cwd: ROOT_DIR });
+  const durationSec = (Date.now() - startMs) / 1000;
+  if (durationSec > 30.0) {
+    throw new Error(`Thời gian chạy 21.600 tick vượt quá 30s (thực tế: ${durationSec.toFixed(2)}s)`);
+  }
+  process.stdout.write(`(${durationSec.toFixed(2)}s) `);
+});
+
 console.log(`\n======================================================`);
 console.log(`🎉 KẾT QUẢ: Đạt ${passed}/${total} bài kiểm thử.`);
 console.log(`======================================================\n`);

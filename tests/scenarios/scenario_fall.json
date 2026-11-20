@@ -1,0 +1,7 @@
+{
+  "player": { "pos": [50.0, -8.0, 0], "vel": [0, -15.0, 0], "carried": 5, "flames": 3 },
+  "random_motes": false,
+  "random_shades": false,
+  "motes": [],
+  "shades": []
+}

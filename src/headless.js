@@ -107,7 +107,7 @@ function main() {
     }
   }
 
-  const engine = new GameEngine(tuning, options.seed);
+  const engine = new GameEngine(tuning, options.seed, options.night);
   engine.applyScenario(scenario);
 
   const outLines = [];
@@ -137,8 +137,8 @@ function main() {
       outLines.push(JSON.stringify(engine.getSnapshot()));
     }
 
-    // Check if game has ended
-    if (engine.state !== "playing") {
+    // Check if game has ended (do not break on paused)
+    if (engine.state === "won" || engine.state === "lost") {
       break;
     }
   }

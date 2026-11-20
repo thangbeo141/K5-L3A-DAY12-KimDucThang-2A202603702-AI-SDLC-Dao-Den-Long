@@ -21,36 +21,44 @@ npm start
 
 ---
 
-## 2. Chế độ chạy ngầm tự động (Headless - Test Contract v1.0)
+## 2. Chế độ chạy ngầm tự động (Headless - Test Contract v1.1)
 
-Game hỗ trợ chạy không cần màn hình đồ họa (headless) với tốc độ 60 ticks/s phục vụ chấm điểm tự động:
+Game hỗ trợ chạy không cần màn hình đồ họa (headless) với tốc độ 60 ticks/s phục vụ chấm điểm tự động (hỗ trợ cả 3 Đêm):
 
 ```bash
 # Lệnh chạy headless cơ bản:
 node src/headless.js --seed 42 --night 1 --ticks 600 --out output.jsonl
 
-# Lệnh chạy toàn bộ bài test kiểm chứng:
+# Lệnh chạy toàn bộ 13 bài test kiểm chứng:
 npm test
 ```
 
 ---
 
-## 3. Hướng dẫn điều khiển & Luật chơi
+## 3. Hướng dẫn điều khiển & Luật chơi (Phase 2 - Ba Hòn Đảo)
 
 ### Điều khiển:
-- **W, A, S, D** hoặc **Phím mũi tên:** Di chuyển nhân vật Mây.
-- **E:** Tương tác / Nạp đom đóm vào Đèn Lồng Lớn khi đứng gần.
-- **Space** hoặc **F:** Kích hoạt chiêu Tỏa Sáng (Pulse) xua đuổi Bóng Mực.
+- **W, A, S, D:** Di chuyển nhân vật Mây (A: Trái, D: Phải, W: Tiến, S: Lùi).
+- **Space:** Nhảy (Jump).
+- **Shift / C:** Lướt (Dash) tốc độ 14 m/s trong 0.2s.
+- **E:** Tương tác / Nạp đom đóm vào Đèn Lồng khi đứng gần (bán kính 2.0m).
+- **F / Q:** Tỏa Sáng (Pulse) xua đuổi Bóng Mực và cướp lại đồ từ Gió Lạc (tiêu hao 3 đom đóm).
+- **Esc / P:** Tạm dừng (Pause / Resume) và mở menu cài đặt.
 - **Kéo chuột:** Xoay camera 3D quanh nhân vật.
 
+### Quần thể 3 Đêm:
+- **Đêm 1 (Đảo Bến):** Hòn đảo tròn R=40m, 5 Đèn Lồng, quái Bóng Mực.
+- **Đêm 2 (Đảo Cau):** 2 đảo tròn R=28m nối bằng Cầu Tre không lan can, 6 Đèn Lồng, 2 Bục Nhảy phóng qua đảo, quái Gió Lạc và Bùa Gió.
+- **Đêm 3 (Đảo Chuông):** Hòn đảo 3 tầng độ cao (Y=0, Y=3, Y=6) với 2 dốc nghiêng và Tháp Chuông cổ, 7 Đèn Lồng, gió mạnh đổi chiều theo chu kỳ.
+
 ### Luật chơi & Tính điểm:
-- **Thắng:** Thắp sáng toàn bộ 5 Đèn Lồng trên đảo trước khi hết 300 giây.
-- **Thua:** Bị Bóng Mực chạm hết 3 sinh lực (flames = 0) hoặc hết thời gian 300 giây.
-- **Cách tính điểm:**
-  - Nhặt mỗi chú đom đóm: **+10 điểm**
-  - Thắp sáng mỗi ngọn Đèn Lồng: **+100 điểm**
-  - Làm choáng Bóng Mực bằng Tỏa Sáng: **+20 điểm**
-  - Điểm thưởng khi thắng: **+1 điểm / giây còn lại** và **+50 điểm / ngọn lửa còn lại**.
+- **Thắng:** Thắp sáng toàn bộ Đèn Lồng của hòn đảo trước khi hết thời gian.
+- **Thua:** Hết 3 Ngọn Lửa sinh mệnh (flames = 0) hoặc hết thời gian.
+- **Cách tính điểm chuẩn:**
+  - Nạp mỗi đom đóm: **+10 điểm**
+  - Thắp sáng mỗi ngọn đèn: **+100 điểm**
+  - Tỏa Sáng trúng mỗi Bóng Mực: **+5 điểm**
+  - Điểm thưởng khi thắng: **+2 điểm / giây còn lại** và **+50 điểm / Ngọn Lửa còn lại**. Tổng điểm lưu giữ qua các Đêm.
 
 ---
 

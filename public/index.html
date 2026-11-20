@@ -4,9 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Đảo Đèn Lồng - Đêm 1: Đảo Bến</title>
+  <title>Đảo Đèn Lồng (Lantern Island) - Phase 2</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Three.js from CDN with fallback -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 
@@ -14,62 +13,178 @@
   <div id="game-container"></div>
 
   <!-- HUD Interface -->
-  <div id="hud">
+  <div id="hud" class="hidden">
+    <!-- Top Bar -->
     <div class="hud-top">
-      <div class="hud-card">
-        <div class="hud-label">🔥 Sinh Lực (Flames)</div>
-        <div id="hud-flames" class="hud-value">❤️❤️❤️</div>
+      <div class="hud-left">
+        <div class="hud-card">
+          <div class="hud-label">🔥 Ngọn Lửa</div>
+          <div id="hud-flames" class="hud-value">❤️❤️❤️</div>
+        </div>
+        <div id="night-badge" class="hud-card">
+          <div class="hud-label">🌙 Đêm</div>
+          <div id="hud-night" class="hud-value">1: Đảo Bến</div>
+        </div>
       </div>
-      <div class="hud-card">
-        <div class="hud-label">✨ Đom Đóm Đang Giữ</div>
-        <div id="hud-motes" class="hud-value">0 / 5</div>
+
+      <div class="hud-center">
+        <div id="timer-card" class="hud-card">
+          <div class="hud-label">⏳ Thời Gian</div>
+          <div id="hud-timer" class="hud-value">05:00</div>
+        </div>
       </div>
-      <div class="hud-card">
-        <div class="hud-label">🏮 Đèn Đã Thắp</div>
-        <div id="hud-lanterns" class="hud-value">0 / 5</div>
-      </div>
-      <div class="hud-card">
-        <div class="hud-label">⏳ Thời Gian</div>
-        <div id="hud-time" class="hud-value">300s</div>
-      </div>
-      <div class="hud-card">
-        <div class="hud-label">🏆 Điểm Số</div>
-        <div id="hud-score" class="hud-value">0</div>
+
+      <div class="hud-right">
+        <div class="hud-card">
+          <div class="hud-label">🏮 Đèn Lồng</div>
+          <div id="hud-lanterns" class="hud-value">0 / 5</div>
+        </div>
+        <div class="hud-card">
+          <div class="hud-label">🏆 Điểm</div>
+          <div id="hud-score" class="hud-value">0</div>
+        </div>
       </div>
     </div>
 
-    <!-- Instruction Help -->
+    <!-- Offscreen Lantern Pointer -->
+    <div id="lantern-pointer" class="hidden">
+      <div class="pointer-arrow">▲</div>
+      <div class="pointer-text">Đèn gần nhất</div>
+    </div>
+
+    <!-- Interaction Prompt -->
+    <div id="interact-prompt" class="hidden">
+      💡 Bấm <b>[E]</b> — Nạp ánh sáng (0/10)
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="hud-bottom">
+      <!-- Motes 10-slot Bag -->
+      <div class="hud-bag-container">
+        <div class="bag-title">✨ Túi Đom Đóm (<span id="bag-count">0</span>/10)</div>
+        <div id="mote-slots" class="mote-slots">
+          <div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
+          <div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
+        </div>
+      </div>
+
+      <!-- Cooldown Icons -->
+      <div class="hud-skills">
+        <div id="skill-dash" class="skill-box">
+          <div class="skill-key">Shift / C</div>
+          <div class="skill-icon">⚡ Lướt</div>
+          <div id="cd-dash" class="skill-cd"></div>
+        </div>
+        <div id="skill-pulse" class="skill-box">
+          <div class="skill-key">F / Q</div>
+          <div class="skill-icon">💫 Tỏa Sáng</div>
+          <div id="cd-pulse" class="skill-cd"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Help -->
     <div class="hud-controls">
-      <p>🎮 <b>W, A, S, D</b>: Di chuyển</p>
-      <p>🦘 <b>Space</b>: Nhảy (Jump)</p>
-      <p>💡 <b>E</b>: Thắp Đèn Lồng (khi ở gần)</p>
-      <p>💫 <b>F / Q</b>: Tỏa Sáng (Pulse xua Bóng Mực)</p>
-      <p>🖱️ <b>Kéo Chuột</b>: Xoay góc nhìn Camera 3D</p>
+      <p>🎮 <b>W, A, S, D</b>: Di chuyển | 🦘 <b>Space</b>: Nhảy | ⚡ <b>Shift/C</b>: Lướt</p>
+      <p>💡 <b>E</b>: Nạp Đèn | 💫 <b>F/Q</b>: Tỏa Sáng (cần 3 đom đóm) | ⏸️ <b>Esc/P</b>: Tạm dừng</p>
     </div>
   </div>
 
   <!-- Red Flash on Hit -->
   <div id="flash-overlay"></div>
 
-  <!-- Interaction Prompt -->
-  <div id="interact-prompt" class="hidden">
-    💡 Bấm <b>[E]</b> để nạp Đom Đóm vào Đèn Lồng
-  </div>
-
   <!-- Toast Container -->
   <div id="toast-container"></div>
 
-  <!-- Notification Banner -->
-  <div id="message-overlay" class="hidden">
-    <div class="overlay-box">
-      <h1 id="overlay-title">Chiến Thắng!</h1>
-      <p id="overlay-desc">Mây đã thắp sáng toàn bộ 5 Đèn Lồng lớn trên đảo!</p>
-      <button id="btn-restart" onclick="restartGame()">Chơi Lại (Restart)</button>
+  <!-- Main Menu Overlay -->
+  <div id="main-menu" class="overlay-screen">
+    <div class="menu-box">
+      <h1 class="game-logo">🏮 ĐẢO ĐÈN LỒNG</h1>
+      <p class="game-tagline">Hành trình thắp sáng Quần Đảo Sương Mù của Bé Mây</p>
+
+      <div class="menu-buttons">
+        <button class="btn-primary" onclick="startGame(1)">Bắt Đầu Hành Trình (Đêm 1)</button>
+        <button class="btn-secondary" onclick="showNightSelect()">Chọn Đêm Chơi (1, 2, 3)</button>
+        <button class="btn-secondary" onclick="openSettings()">Cài Đặt</button>
+      </div>
     </div>
   </div>
 
-  <script src="src/engine.js?v=5"></script>
-  <script src="game3d.js?v=5"></script>
+  <!-- Night Intro Dialog -->
+  <div id="night-intro" class="overlay-screen hidden">
+    <div class="menu-box intro-box">
+      <h2 id="intro-night-title">Đêm 1: Đảo Bến</h2>
+      <div class="story-speech">
+        <div class="elder-avatar">👴</div>
+        <div class="elder-text">
+          <div class="elder-name">Lời Ông Đăng:</div>
+          <p id="intro-dialogue">"Đêm nay sương buông dày lắm, Mây à. Hãy thu gom những chú đom đóm vàng và thắp sáng toàn bộ 5 ngọn đèn lồng lớn để giữ ấm hòn đảo nhé!"</p>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="startCurrentNight()">Bắt Đầu Đêm</button>
+    </div>
+  </div>
+
+  <!-- Pause Menu (Esc/P) -->
+  <div id="pause-menu" class="overlay-screen hidden">
+    <div class="menu-box">
+      <h2>⏸️ TẠM DỪNG</h2>
+      <div class="menu-buttons">
+        <button class="btn-primary" onclick="resumeGame()">Tiếp Tục</button>
+        <button class="btn-secondary" onclick="restartCurrentNight()">Chơi Lại Đêm Này</button>
+        <button class="btn-secondary" onclick="openSettings()">Cài Đặt</button>
+        <button class="btn-danger" onclick="returnToMainMenu()">Về Menu Chính</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Dialog -->
+  <div id="settings-dialog" class="overlay-screen hidden">
+    <div class="menu-box settings-box">
+      <h2>⚙️ CÀI ĐẶT</h2>
+      <div class="setting-row">
+        <label>Âm lượng tổng (Audio):</label>
+        <input type="range" id="setting-volume" min="0" max="100" value="80" onchange="updateSettings()">
+        <span id="volume-val">80%</span>
+      </div>
+      <div class="setting-row">
+        <label>Độ nhạy chuột (Sensitivity):</label>
+        <input type="range" id="setting-sens" min="5" max="20" value="10" onchange="updateSettings()">
+        <span id="sens-val">1.0x</span>
+      </div>
+      <button class="btn-primary" onclick="closeSettings()">Đóng</button>
+    </div>
+  </div>
+
+  <!-- Night Selection Dialog -->
+  <div id="night-select-dialog" class="overlay-screen hidden">
+    <div class="menu-box">
+      <h2>🌙 CHỌN ĐÊM CHƠI</h2>
+      <div class="menu-buttons">
+        <button class="btn-secondary" onclick="startGame(1)">Đêm 1: Đảo Bến (5 Đèn - R=40m)</button>
+        <button class="btn-secondary" onclick="startGame(2)">Đêm 2: Đảo Cau (6 Đèn - Cầu Tre & Bục Nhảy)</button>
+        <button class="btn-secondary" onclick="startGame(3)">Đêm 3: Đảo Chuông (7 Đèn - 3 Tầng & Gió Lớn)</button>
+        <button class="btn-primary" onclick="closeNightSelect()">Quay Lại</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- End Night / Game Over Overlay -->
+  <div id="message-overlay" class="overlay-screen hidden">
+    <div class="menu-box result-box">
+      <h1 id="overlay-title">🎉 Hoàn Thành Đêm!</h1>
+      <p id="overlay-desc">Mây đã thắp sáng toàn bộ ngọn đèn!</p>
+      <div id="overlay-score-details" class="score-details"></div>
+      <div id="overlay-actions" class="menu-buttons">
+        <button id="btn-next-night" class="btn-primary" onclick="proceedNextNight()">Tiếp Tục Đêm Tiếp</button>
+        <button id="btn-restart" class="btn-secondary" onclick="restartCurrentNight()">Chơi Lại Đêm Này</button>
+        <button class="btn-secondary" onclick="returnToMainMenu()">Về Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="src/engine.js?v=6"></script>
+  <script src="game3d.js?v=6"></script>
 </body>
 
 </html>

@@ -36,3 +36,4 @@
 
 ## 4. Lịch sử cập nhật Harness
 - **Phase 1 (PRD-0):** Thiết lập cấu trúc dự án, core deterministic simulation engine, headless runner, web 3D Three.js renderer, scenario test suite.
+- **Phase 2 (Ticket-02 - "Ba hòn đảo"):** Nâng cấp Test Contract v1.1, tích hợp số liệu chuẩn, hỗ trợ 3 Đêm (Đảo Bến, Đảo Cau, Đảo Chuông), cơ chế Lướt (Dash), Bùa Gió, Gió Lạc (Drifters), bục phóng, dốc và tháp chuông, hệ thống Tạm dừng (Pause/Resume), Web Audio API SFX, mở rộng bộ test headless lên 13 bài đạt hiệu năng 21.600 tick trong 0.14s.
