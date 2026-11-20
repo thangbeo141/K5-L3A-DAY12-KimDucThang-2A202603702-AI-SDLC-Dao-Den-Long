@@ -216,6 +216,10 @@ function buildEnvironment(night) {
   const grassMat = new THREE.MeshStandardMaterial({ color: 0x2F5D50, roughness: 0.85 });
   const sandMat = new THREE.MeshStandardMaterial({ color: 0xC9B48A, roughness: 0.9 });
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x6B4A2F, roughness: 0.8 });
+  const stoneCliffMat = new THREE.MeshStandardMaterial({ color: 0x484B56, roughness: 0.9, side: THREE.DoubleSide });
+  const tier1FloorMat = new THREE.MeshStandardMaterial({ color: 0xC9B48A, roughness: 0.85, side: THREE.DoubleSide });
+  const tier2FloorMat = new THREE.MeshStandardMaterial({ color: 0x366352, roughness: 0.8, side: THREE.DoubleSide });
+  const goldTrimMat = new THREE.MeshStandardMaterial({ color: 0xD4AF37, roughness: 0.4, metalness: 0.3, side: THREE.DoubleSide });
 
   if (night === 1) {
     // Night 1: Đảo Bến R=40m
@@ -246,66 +250,260 @@ function buildEnvironment(night) {
     createLaunchPadMesh(50, 0.05, -18);
   } else if (night === 3) {
     // Night 3: Đảo Chuông: 3 tiers
-    // Tier 0: Entire island R=45m, Y=0
+    // Tier 0: Entire island R=45m, Y=0 (from Y=-8 to Y=0)
     const tier0 = new THREE.Mesh(new THREE.CylinderGeometry(45, 40, 8, 48), grassMat);
     tier0.position.set(0, -4, 0);
+    tier0.receiveShadow = true;
     environmentGroup.add(tier0);
 
-    // Tier 1: Half-annulus R in [12, 24], z > 0, Y=3
-    // Top surface
-    const tier1TopGeo = new THREE.RingGeometry(12, 24, 48, 1, 0, Math.PI);
-    const tier1Top = new THREE.Mesh(tier1TopGeo, sandMat);
-    tier1Top.rotation.x = -Math.PI / 2;
-    tier1Top.position.set(0, 3.0, 0);
-    tier1Top.receiveShadow = true;
-    environmentGroup.add(tier1Top);
+    // Tier 1: Half-annulus R in [12, 24], Z > 0, Y=3 with cliff walls and end caps
+    createTier1Mesh(tier1FloorMat, stoneCliffMat);
 
-    // Outer vertical wall (R=24, from Y=0 to Y=3 in z > 0)
-    const tier1OuterGeo = new THREE.CylinderGeometry(24, 24, 3, 48, 1, true, -Math.PI / 2, Math.PI);
-    const tier1Outer = new THREE.Mesh(tier1OuterGeo, sandMat);
-    tier1Outer.position.set(0, 1.5, 0);
-    tier1Outer.receiveShadow = true;
-    environmentGroup.add(tier1Outer);
+    // 2 Ramps width 3m along 30° and 150° (from R=30, Y=0 to R=24, Y=3)
+    createRampMesh(30, woodMat);
+    createRampMesh(150, woodMat);
 
-    // Inner vertical wall (R=12, from Y=0 to Y=3 in z > 0)
-    const tier1InnerGeo = new THREE.CylinderGeometry(12, 12, 3, 32, 1, true, -Math.PI / 2, Math.PI);
-    const tier1Inner = new THREE.Mesh(tier1InnerGeo, sandMat);
-    tier1Inner.position.set(0, 1.5, 0);
-    tier1Inner.receiveShadow = true;
-    environmentGroup.add(tier1Inner);
+    // Tier 2: Disc R=8m, Y=6 (from Y=0 to Y=6) with golden rim
+    createTier2Mesh(tier2FloorMat, stoneCliffMat, goldTrimMat);
 
-    // End caps along z=0 (x in [12, 24] and x in [-24, -12])
-    const capGeo = new THREE.BoxGeometry(12, 3, 0.2);
-    const cap1 = new THREE.Mesh(capGeo, sandMat);
-    cap1.position.set(18, 1.5, 0);
-    cap1.receiveShadow = true;
-    environmentGroup.add(cap1);
+    // Bell Tower: R=2m cylinder 8m tall on Tier 2 with pagoda roof and golden bell
+    createBellTowerMesh(goldTrimMat);
 
-    const cap2 = new THREE.Mesh(capGeo, sandMat);
-    cap2.position.set(-18, 1.5, 0);
-    cap2.receiveShadow = true;
-    environmentGroup.add(cap2);
-
-    // Tier 2: Disc R=8m, Y=6
-    const tier2 = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 6, 32), grassMat);
-    tier2.position.set(0, 3, 0);
-    environmentGroup.add(tier2);
-
-    // Bell tower: R=2m cylinder 8m tall on Tier 2
-    const tower = new THREE.Mesh(
-      new THREE.CylinderGeometry(2, 2.2, 8, 16),
-      new THREE.MeshStandardMaterial({ color: 0x5B5F6E, roughness: 0.7 })
-    );
-    tower.position.set(0, 10, 0);
-    environmentGroup.add(tower);
-
-    // 2 Ramps along 30° and 150°
-    createRampMesh(30);
-    createRampMesh(150);
-
-    // Tier 1 Launch pad at (0, 3, 13)
+    // Tier 1 Launch pad at (0, 3.05, 13)
     createLaunchPadMesh(0, 3.05, 13);
   }
+}
+
+function createTier1Mesh(floorMat, cliffMat) {
+  const group = new THREE.Group();
+  const N = 48; // segments for half circle
+  const R_in = 12.0;
+  const R_out = 24.0;
+  const H = 3.0;
+
+  // 1. Top floor (Y = 3.0, R in [12, 24], Z >= 0, angle 0 to PI)
+  const floorPositions = [];
+  const floorNormals = [];
+
+  for (let i = 0; i < N; i++) {
+    const a1 = (i / N) * Math.PI;
+    const a2 = ((i + 1) / N) * Math.PI;
+
+    const c1 = Math.cos(a1), s1 = Math.sin(a1);
+    const c2 = Math.cos(a2), s2 = Math.sin(a2);
+
+    const in1 = [R_in * c1, H, R_in * s1];
+    const in2 = [R_in * c2, H, R_in * s2];
+    const out1 = [R_out * c1, H, R_out * s1];
+    const out2 = [R_out * c2, H, R_out * s2];
+
+    // Triangle 1
+    floorPositions.push(...in1, ...out1, ...out2);
+    floorNormals.push(0, 1, 0, 0, 1, 0, 0, 1, 0);
+
+    // Triangle 2
+    floorPositions.push(...in1, ...out2, ...in2);
+    floorNormals.push(0, 1, 0, 0, 1, 0, 0, 1, 0);
+  }
+
+  const floorGeo = new THREE.BufferGeometry();
+  floorGeo.setAttribute('position', new THREE.Float32BufferAttribute(floorPositions, 3));
+  floorGeo.setAttribute('normal', new THREE.Float32BufferAttribute(floorNormals, 3));
+  const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+  floorMesh.receiveShadow = true;
+  group.add(floorMesh);
+
+  // 2. Cliff walls: outer wall (R=24), inner wall (R=12), and end caps at Z=0
+  const wallPositions = [];
+  const wallNormals = [];
+
+  // Outer cliff wall (R = 24.0, from Y=0 to Y=3 in Z > 0)
+  for (let i = 0; i < N; i++) {
+    const a1 = (i / N) * Math.PI;
+    const a2 = ((i + 1) / N) * Math.PI;
+
+    const c1 = Math.cos(a1), s1 = Math.sin(a1);
+    const c2 = Math.cos(a2), s2 = Math.sin(a2);
+
+    const b1 = [R_out * c1, 0.0, R_out * s1];
+    const t1 = [R_out * c1, H, R_out * s1];
+    const b2 = [R_out * c2, 0.0, R_out * s2];
+    const t2 = [R_out * c2, H, R_out * s2];
+
+    wallPositions.push(...b1, ...t1, ...t2);
+    wallNormals.push(c1, 0, s1, c1, 0, s1, c2, 0, s2);
+
+    wallPositions.push(...b1, ...t2, ...b2);
+    wallNormals.push(c1, 0, s1, c2, 0, s2, c2, 0, s2);
+  }
+
+  // Inner cliff wall (R = 12.0, from Y=0 to Y=3 in Z > 0, facing inward)
+  for (let i = 0; i < N; i++) {
+    const a1 = (i / N) * Math.PI;
+    const a2 = ((i + 1) / N) * Math.PI;
+
+    const c1 = Math.cos(a1), s1 = Math.sin(a1);
+    const c2 = Math.cos(a2), s2 = Math.sin(a2);
+
+    const b1 = [R_in * c1, 0.0, R_in * s1];
+    const t1 = [R_in * c1, H, R_in * s1];
+    const b2 = [R_in * c2, 0.0, R_in * s2];
+    const t2 = [R_in * c2, H, R_in * s2];
+
+    wallPositions.push(...b1, ...t2, ...t1);
+    wallNormals.push(-c1, 0, -s1, -c2, 0, -s2, -c1, 0, -s1);
+
+    wallPositions.push(...b1, ...b2, ...t2);
+    wallNormals.push(-c1, 0, -s1, -c2, 0, -s2, -c2, 0, -s2);
+  }
+
+  // End Cap 1: at angle 0 (Z=0, X in [12, 24], Y in [0, 3], normal = [0, 0, -1])
+  const e1_b1 = [R_in, 0, 0];
+  const e1_t1 = [R_in, H, 0];
+  const e1_b2 = [R_out, 0, 0];
+  const e1_t2 = [R_out, H, 0];
+  wallPositions.push(...e1_b1, ...e1_t2, ...e1_t1);
+  wallNormals.push(0, 0, -1, 0, 0, -1, 0, 0, -1);
+  wallPositions.push(...e1_b1, ...e1_b2, ...e1_t2);
+  wallNormals.push(0, 0, -1, 0, 0, -1, 0, 0, -1);
+
+  // End Cap 2: at angle PI (Z=0, X in [-24, -12], Y in [0, 3], normal = [0, 0, -1])
+  const e2_b1 = [-R_out, 0, 0];
+  const e2_t1 = [-R_out, H, 0];
+  const e2_b2 = [-R_in, 0, 0];
+  const e2_t2 = [-R_in, H, 0];
+  wallPositions.push(...e2_b1, ...e2_t2, ...e2_t1);
+  wallNormals.push(0, 0, -1, 0, 0, -1, 0, 0, -1);
+  wallPositions.push(...e2_b1, ...e2_b2, ...e2_t2);
+  wallNormals.push(0, 0, -1, 0, 0, -1, 0, 0, -1);
+
+  const wallGeo = new THREE.BufferGeometry();
+  wallGeo.setAttribute('position', new THREE.Float32BufferAttribute(wallPositions, 3));
+  wallGeo.setAttribute('normal', new THREE.Float32BufferAttribute(wallNormals, 3));
+  const wallMesh = new THREE.Mesh(wallGeo, cliffMat);
+  wallMesh.receiveShadow = true;
+  group.add(wallMesh);
+
+  environmentGroup.add(group);
+}
+
+function createRampMesh(deg, rampMat) {
+  const ang = (deg * Math.PI) / 180;
+  const c = Math.cos(ang);
+  const s = Math.sin(ang);
+
+  // Perpendicular unit vector across ramp width
+  const halfW = 1.5; // width = 3m
+  const px = -s * halfW;
+  const pz = c * halfW;
+
+  // Foot of ramp at R = 30m, Y = 0.0
+  const fx = 30.0 * c;
+  const fz = 30.0 * s;
+  const fL = [fx - px, 0.02, fz - pz];
+  const fR = [fx + px, 0.02, fz + pz];
+
+  // Top of ramp at R = 24m, Y = 3.0
+  const tx = 24.0 * c;
+  const tz = 24.0 * s;
+  const tL = [tx - px, 3.02, tz - pz];
+  const tR = [tx + px, 3.02, tz + pz];
+
+  // Upward slope normal:
+  // Run = -6m (towards center), Rise = +3m
+  const nRaw = [3.0 * pz, 6.0, -3.0 * px];
+  const nLen = Math.hypot(nRaw[0], nRaw[1], nRaw[2]) || 1;
+  const nx = nRaw[0] / nLen, ny = nRaw[1] / nLen, nz = nRaw[2] / nLen;
+
+  const positions = [];
+  const normals = [];
+
+  // Top ramp walking surface
+  positions.push(...fL, ...tL, ...tR);
+  normals.push(nx, ny, nz, nx, ny, nz, nx, ny, nz);
+
+  positions.push(...fL, ...tR, ...fR);
+  normals.push(nx, ny, nz, nx, ny, nz, nx, ny, nz);
+
+  // Left solid side skirt down to Y=0
+  const fL_b = [fL[0], 0, fL[2]];
+  const tL_b = [tL[0], 0, tL[2]];
+  positions.push(...fL_b, ...tL, ...fL);
+  normals.push(-s, 0, c, -s, 0, c, -s, 0, c);
+  positions.push(...fL_b, ...tL_b, ...tL);
+  normals.push(-s, 0, c, -s, 0, c, -s, 0, c);
+
+  // Right solid side skirt down to Y=0
+  const fR_b = [fR[0], 0, fR[2]];
+  const tR_b = [tR[0], 0, tR[2]];
+  positions.push(...fR_b, ...fR, ...tR);
+  normals.push(s, 0, -c, s, 0, -c, s, 0, -c);
+  positions.push(...fR_b, ...tR, ...tR_b);
+  normals.push(s, 0, -c, s, 0, -c, s, 0, -c);
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+
+  const mat = rampMat.clone();
+  mat.side = THREE.DoubleSide;
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.receiveShadow = true;
+  environmentGroup.add(mesh);
+}
+
+function createTier2Mesh(floorMat, cliffMat, goldMat) {
+  const group = new THREE.Group();
+
+  // Tier 2 cylinder: R=8m, height 6m (from Y=0 to Y=6, center Y=3)
+  const cylGeo = new THREE.CylinderGeometry(8.0, 8.0, 6.0, 48);
+  const materials = [cliffMat, floorMat, cliffMat];
+  const cylMesh = new THREE.Mesh(cylGeo, materials);
+  cylMesh.position.set(0, 3.0, 0);
+  cylMesh.receiveShadow = true;
+  group.add(cylMesh);
+
+  // Golden edge border around Tier 2 at Y=6.03
+  const rimGeo = new THREE.RingGeometry(7.8, 8.0, 48);
+  const rimMesh = new THREE.Mesh(rimGeo, goldMat);
+  rimMesh.rotation.x = -Math.PI / 2;
+  rimMesh.position.set(0, 6.03, 0);
+  group.add(rimMesh);
+
+  environmentGroup.add(group);
+}
+
+function createBellTowerMesh(goldMat) {
+  const group = new THREE.Group();
+
+  // Tower stone cylinder: R=2m, height 8m (from Y=6 to Y=14, center at Y=10)
+  const towerGeo = new THREE.CylinderGeometry(2.0, 2.1, 8.0, 24);
+  const towerMat = new THREE.MeshStandardMaterial({ color: 0x4A4E5A, roughness: 0.85 });
+  const towerMesh = new THREE.Mesh(towerGeo, towerMat);
+  towerMesh.position.set(0, 10.0, 0);
+  towerMesh.receiveShadow = true;
+  group.add(towerMesh);
+
+  // Pagoda roof eave at Y=14.0
+  const roofGeo = new THREE.ConeGeometry(3.3, 1.4, 8);
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x8B2500, roughness: 0.6 });
+  const roof = new THREE.Mesh(roofGeo, roofMat);
+  roof.position.set(0, 14.7, 0);
+  group.add(roof);
+
+  // Golden spire at the tip
+  const spireGeo = new THREE.CylinderGeometry(0.1, 0.4, 2.0, 8);
+  const spire = new THREE.Mesh(spireGeo, goldMat);
+  spire.position.set(0, 16.2, 0);
+  group.add(spire);
+
+  // Golden Ancient Bell hanging in the tower (at Y=10.8)
+  const bellGeo = new THREE.CylinderGeometry(0.6, 1.0, 1.6, 16);
+  const bell = new THREE.Mesh(bellGeo, goldMat);
+  bell.position.set(0, 10.8, 0);
+  group.add(bell);
+
+  environmentGroup.add(group);
 }
 
 function createLaunchPadMesh(x, y, z) {
@@ -322,29 +520,15 @@ function createLaunchPadMesh(x, y, z) {
   ring.position.y = 0.06;
   pad.add(ring);
 
-  environmentGroup.add(pad);
-}
-
-function createRampMesh(deg) {
-  const ang = (deg * Math.PI) / 180;
-  const rampGroup = new THREE.Group();
-
-  // Ramp has horizontal run 6m (from R=30 to R=24) and vertical rise 3m (from Y=0 to Y=3)
-  // Length along slope: hypot(6, 3) = 6.708m. Width = 3m, thickness = 0.3m.
-  const rampBox = new THREE.Mesh(
-    new THREE.BoxGeometry(6.708, 0.3, 3),
-    new THREE.MeshStandardMaterial({ color: 0x6B4A2F, roughness: 0.85 })
+  // Glowing center
+  const centerOrb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.25, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0x00E5FF })
   );
-  // Center is at R = 27m, Y = 1.5m
-  rampBox.position.set(27, 1.5, 0);
-  // Outer end (R=30, x > 27) goes down to Y=0, inner end (R=24, x < 27) goes up to Y=3
-  rampBox.rotation.z = -Math.atan2(3, 6);
-  rampBox.receiveShadow = true;
-  rampGroup.add(rampBox);
+  centerOrb.position.y = 0.15;
+  pad.add(centerOrb);
 
-  // Rotate group around Y axis so it points at angle deg in XZ plane
-  rampGroup.rotation.y = -ang;
-  environmentGroup.add(rampGroup);
+  environmentGroup.add(pad);
 }
 
 // Bé Mây Player Mesh with Nón Lá & Red Scarf (#C8102E)

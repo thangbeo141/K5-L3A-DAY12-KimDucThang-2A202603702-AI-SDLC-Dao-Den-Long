@@ -383,8 +383,8 @@ class GameEngine {
         return Math.max(0.0, Math.min(3.0, t * 3.0));
       }
 
-      // Tier 1: Ring R in [11.5, 24.5] with z > 0, Y=3
-      if (r >= 11.5 && r <= 24.5 && z > 0) return 3.0;
+      // Tier 1: Ring R in [11.5, 24.5] with z >= 0, Y=3
+      if (r >= 11.5 && r <= 24.5 && z >= 0) return 3.0;
 
       // Default Tier 0 (Y=0)
       return 0.0;
@@ -1045,6 +1045,12 @@ class GameEngine {
             }
           }
 
+          // Cliff block for shades: cannot walk straight up cliffs (> 1.2m higher)
+          const next_gy = this.getGroundHeight(next_x, next_z);
+          if (next_gy !== null && next_gy > s.pos[1] + 1.2) {
+            blocked = true;
+          }
+
           if (!blocked && (s.evict_timer || 0) <= 0) {
             s.pos[0] = next_x;
             s.pos[2] = next_z;
@@ -1072,6 +1078,10 @@ class GameEngine {
               blocked = true;
               break;
             }
+          }
+          const next_w_gy = this.getGroundHeight(next_x, next_z);
+          if (next_w_gy !== null && next_w_gy > s.pos[1] + 1.2) {
+            blocked = true;
           }
           if (!blocked) {
             s.pos[0] = next_x;
@@ -1120,6 +1130,10 @@ class GameEngine {
           d.pos[2] += ((d.pos[2] - this.player.pos[2]) / distToPlayer) * step;
         }
       }
+
+      // Keep drifter floating above current ground
+      const dgy = this.getGroundHeight(d.pos[0], d.pos[2]);
+      if (dgy !== null) d.pos[1] = dgy + 1.2;
     }
 
     // 9. Touch: Drifters steal first, then Shades deal hit
