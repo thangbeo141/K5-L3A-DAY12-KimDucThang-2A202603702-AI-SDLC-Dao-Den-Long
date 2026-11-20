@@ -391,10 +391,21 @@ function gameLoop(now) {
   syncEntities();
   playerMesh.position.set(engine.player.pos[0], engine.player.pos[1], engine.player.pos[2]);
 
-  // Update Camera 3rd person follow
+  // Rotate player mesh toward movement direction
+  const [mx, mz] = engine.current_input.move || [0, 0];
+  if (Math.hypot(mx, mz) > 0.01) {
+    const rad = ((engine.current_input.cam_yaw_deg || 0) * Math.PI) / 180.0;
+    const cos_t = Math.cos(rad);
+    const sin_t = Math.sin(rad);
+    const wx = mx * cos_t + mz * sin_t;
+    const wz = -mx * sin_t + mz * cos_t;
+    playerMesh.rotation.y = Math.atan2(wx, wz);
+  }
+
+  // Update Camera 3rd person follow (Camera stays BEHIND Mây looking forward)
   const camDist = 12;
-  const camX = engine.player.pos[0] + camDist * Math.sin(camYaw) * Math.cos(camPitch);
-  const camZ = engine.player.pos[2] + camDist * Math.cos(camYaw) * Math.cos(camPitch);
+  const camX = engine.player.pos[0] - camDist * Math.sin(camYaw) * Math.cos(camPitch);
+  const camZ = engine.player.pos[2] - camDist * Math.cos(camYaw) * Math.cos(camPitch);
   const camY = engine.player.pos[1] + camDist * Math.sin(camPitch);
 
   camera.position.set(camX, Math.max(1, camY), camZ);
