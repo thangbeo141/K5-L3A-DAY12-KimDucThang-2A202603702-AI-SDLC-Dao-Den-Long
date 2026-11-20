@@ -199,7 +199,6 @@ class GameEngine {
   }
 
   setInput(newInput) {
-    this.prev_input = Object.assign({}, this.current_input);
     Object.assign(this.current_input, newInput);
   }
 
@@ -224,18 +223,18 @@ class GameEngine {
       });
     }
 
-    // Edge triggers
-    const jump_triggered = this.current_input.jump && !this.prev_input.jump;
-    const interact_triggered = this.current_input.interact && !this.prev_input.interact;
-    const pulse_triggered = this.current_input.pulse && !this.prev_input.pulse;
+    // Edge triggers comparing current step input against previous step input
+    const jump_triggered = Boolean(this.current_input.jump) && !Boolean(this.prev_input.jump);
+    const interact_triggered = Boolean(this.current_input.interact) && !Boolean(this.prev_input.interact);
+    const pulse_triggered = Boolean(this.current_input.pulse) && !Boolean(this.prev_input.pulse);
     this.prev_input = Object.assign({}, this.current_input);
 
     // Jump physics
     if (jump_triggered && this.player.pos[1] <= 0.001) {
-      this.player.vy = 6.0;
+      this.player.vy = 8.5;
     }
     if (this.player.pos[1] > 0 || (this.player.vy && this.player.vy > 0)) {
-      this.player.vy = (this.player.vy || 0) - (18.0 / 60.0);
+      this.player.vy = (this.player.vy || 0) - (22.0 / 60.0);
       this.player.pos[1] = Math.max(0, this.player.pos[1] + (this.player.vy / 60.0));
       if (this.player.pos[1] <= 0.0001) {
         this.player.pos[1] = 0.0;

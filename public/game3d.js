@@ -278,28 +278,43 @@ function syncEntities() {
 
 function setupControls() {
   window.addEventListener('keydown', e => {
-    keys[e.key.toLowerCase()] = true;
+    const k = e.key.toLowerCase();
+    keys[k] = true;
     if (e.key === ' ') {
-      engine.setInput({ jump: true });
+      keys['space'] = true;
+      e.preventDefault();
     }
-    if (e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'q') {
-      triggerPulse();
+
+    // Friendly instant feedback when trying to interact without conditions
+    if (k === 'e') {
+      let near = false;
+      for (const lan of engine.lanterns) {
+        if (!lan.lit && Math.hypot(engine.player.pos[0] - lan.pos[0], engine.player.pos[2] - lan.pos[2]) <= engine.tuning.interact_radius) {
+          near = true;
+          break;
+        }
+      }
+      if (!near) {
+        showToast("💡 Hãy lại gần chân cột Đèn Lồng Lớn rồi bấm [E] nhé!");
+      } else if (engine.player.carried <= 0) {
+        showToast("⚠️ Túi rỗng (0 đom đóm)! Hãy đi nhặt các đốm vàng trước!");
+      }
     }
-    if (e.key.toLowerCase() === 'e') {
-      engine.setInput({ interact: true });
+
+    if (k === 'f' || k === 'q') {
+      if (engine.player.carried < engine.tuning.pulse_cost) {
+        showToast("⚠️ Cần ít nhất 1 đom đóm để Tỏa Sáng [F]!");
+      } else if (engine.player.pulse_cooldown > 0) {
+        showToast("⏳ Đang hồi chiêu Tỏa Sáng...");
+      }
     }
   });
 
   window.addEventListener('keyup', e => {
-    keys[e.key.toLowerCase()] = false;
+    const k = e.key.toLowerCase();
+    keys[k] = false;
     if (e.key === ' ') {
-      engine.setInput({ jump: false });
-    }
-    if (e.key.toLowerCase() === 'e') {
-      engine.setInput({ interact: false });
-    }
-    if (e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'q') {
-      engine.setInput({ pulse: false });
+      keys['space'] = false;
     }
   });
 
@@ -345,19 +360,6 @@ function triggerFlashDamage() {
   }, 350);
 }
 
-function triggerPulse() {
-  if (engine.player.carried < engine.tuning.pulse_cost) {
-    showToast("⚠️ Cần ít nhất 1 đom đóm để Tỏa Sáng!");
-    return;
-  }
-  if (engine.player.pulse_cooldown > 0) {
-    showToast("⏳ Đang hồi chiêu Tỏa Sáng...");
-    return;
-  }
-
-  engine.setInput({ pulse: true });
-}
-
 function triggerPulseVisual() {
   if (pulseEffectMesh) {
     pulseEffectMesh.position.set(engine.player.pos[0], 0.5, engine.player.pos[2]);
@@ -393,7 +395,10 @@ function updateInput() {
   const deg = (camYaw * 180 / Math.PI) % 360;
   engine.setInput({
     move: [mx, mz],
-    cam_yaw_deg: deg
+    cam_yaw_deg: deg,
+    jump: Boolean(keys[' '] || keys['space']),
+    interact: Boolean(keys['e']),
+    pulse: Boolean(keys['f'] || keys['q'])
   });
 }
 
