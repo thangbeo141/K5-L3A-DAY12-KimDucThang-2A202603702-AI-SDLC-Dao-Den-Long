@@ -57,6 +57,7 @@ function init() {
   window.addEventListener('resize', onWindowResize);
 
   // 8. Start Loop
+  lastTickTime = performance.now();
   requestAnimationFrame(gameLoop);
 }
 
@@ -391,8 +392,8 @@ function updateInput() {
   let mx = 0, mz = 0;
   if (keys['w'] || keys['arrowup']) mz += 1;
   if (keys['s'] || keys['arrowdown']) mz -= 1;
-  if (keys['a'] || keys['arrowleft']) mx += 1; // Left relative to camera view
-  if (keys['d'] || keys['arrowright']) mx -= 1; // Right relative to camera view
+  if (keys['d'] || keys['arrowright']) mx += 1; // Right
+  if (keys['a'] || keys['arrowleft']) mx -= 1;  // Left
 
   const deg = (camYaw * 180 / Math.PI) % 360;
   engine.setInput({
@@ -504,6 +505,11 @@ function restartGame() {
 
 function gameLoop(now) {
   requestAnimationFrame(gameLoop);
+
+  // Prevent accumulator spiral / lag spikes when switching tabs
+  if (now - lastTickTime > 150) {
+    lastTickTime = now;
+  }
 
   // Run simulation ticks
   while (now - lastTickTime >= TICK_INTERVAL) {
