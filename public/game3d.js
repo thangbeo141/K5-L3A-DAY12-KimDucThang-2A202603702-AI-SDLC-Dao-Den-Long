@@ -3,7 +3,7 @@
  * Using Three.js and the deterministic GameEngine
  */
 
-let scene, camera, renderer;
+let scene, camera, renderer, ambientLight;
 let engine;
 let playerMesh, lanternMeshes = {}, moteMeshes = {}, shadeMeshes = {};
 let pulseEffectMesh = null;
@@ -33,7 +33,7 @@ function init() {
   container.appendChild(renderer.domElement);
 
   // 3. Lighting
-  const ambientLight = new THREE.AmbientLight(0x1a2138, 1.2);
+  ambientLight = new THREE.AmbientLight(0x1a2138, 1.2);
   scene.add(ambientLight);
 
   const moonLight = new THREE.DirectionalLight(0x7986cb, 0.6);
@@ -172,9 +172,22 @@ function syncEntities() {
       pLight.position.y = 2.7;
       g.add(pLight);
 
+      // Safe Zone Circle Ring on ground (radius = 4m)
+      const ringGeo = new THREE.RingGeometry(3.85, 4.0, 36);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0xffb74d,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.05;
+      g.add(ring);
+
       g.position.set(lan.pos[0], lan.pos[1], lan.pos[2]);
       scene.add(g);
-      lanternMeshes[lan.id] = { group: g, core, light: pLight };
+      lanternMeshes[lan.id] = { group: g, core, light: pLight, ring };
     }
 
     // Update visuals based on lit state
@@ -182,9 +195,14 @@ function syncEntities() {
     if (lan.lit) {
       m.core.material.color.setHex(0xffea00);
       m.light.intensity = 3.5;
+      if (m.ring) {
+        m.ring.material.opacity = 0.65;
+        m.ring.rotation.z += 0.005;
+      }
     } else {
       m.core.material.color.setHex(0x3e2723);
       m.light.intensity = 0;
+      if (m.ring) m.ring.material.opacity = 0;
     }
   }
 
@@ -261,7 +279,10 @@ function syncEntities() {
 function setupControls() {
   window.addEventListener('keydown', e => {
     keys[e.key.toLowerCase()] = true;
-    if (e.key === ' ' || e.key.toLowerCase() === 'f') {
+    if (e.key === ' ') {
+      engine.setInput({ jump: true });
+    }
+    if (e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'q') {
       triggerPulse();
     }
     if (e.key.toLowerCase() === 'e') {
@@ -271,10 +292,13 @@ function setupControls() {
 
   window.addEventListener('keyup', e => {
     keys[e.key.toLowerCase()] = false;
+    if (e.key === ' ') {
+      engine.setInput({ jump: false });
+    }
     if (e.key.toLowerCase() === 'e') {
       engine.setInput({ interact: false });
     }
-    if (e.key === ' ' || e.key.toLowerCase() === 'f') {
+    if (e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'q') {
       engine.setInput({ pulse: false });
     }
   });
@@ -300,14 +324,62 @@ function setupControls() {
   });
 }
 
+function showToast(msg) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerText = msg;
+  container.appendChild(t);
+  setTimeout(() => {
+    if (t.parentNode) t.parentNode.removeChild(t);
+  }, 2600);
+}
+
+function triggerFlashDamage() {
+  const flash = document.getElementById('flash-overlay');
+  if (!flash) return;
+  flash.classList.add('active');
+  setTimeout(() => {
+    flash.classList.remove('active');
+  }, 350);
+}
+
 function triggerPulse() {
+  if (engine.player.carried < engine.tuning.pulse_cost) {
+    showToast("⚠️ Cần ít nhất 1 đom đóm để Tỏa Sáng!");
+    return;
+  }
+  if (engine.player.pulse_cooldown > 0) {
+    showToast("⏳ Đang hồi chiêu Tỏa Sáng...");
+    return;
+  }
+
   engine.setInput({ pulse: true });
-  // Visual pulse animation
+}
+
+function triggerPulseVisual() {
   if (pulseEffectMesh) {
     pulseEffectMesh.position.set(engine.player.pos[0], 0.5, engine.player.pos[2]);
     pulseEffectMesh.scale.set(0.1, 0.1, 0.1);
     pulseEffectMesh.visible = true;
-    pulseEffectMesh.material.opacity = 0.8;
+    pulseEffectMesh.material.opacity = 0.85;
+  }
+}
+
+function handleGameEvent(evt) {
+  if (evt.name === 'mote_picked') {
+    showToast(`✨ Nhặt được Đom Đóm! (${evt.data.carried}/${engine.tuning.carry_capacity})`);
+  } else if (evt.name === 'deposit') {
+    showToast(`🏮 Nạp ${evt.data.amount} đom đóm vào ${evt.data.lantern_id} (${evt.data.deposited}/${engine.tuning.lantern_cost})`);
+  } else if (evt.name === 'lantern_lit') {
+    showToast(`🎉 ${evt.data.lantern_id} ĐÃ ĐƯỢC THẮP SÁNG! Vùng an toàn 4m mở rộng!`);
+  } else if (evt.name === 'pulse') {
+    triggerPulseVisual();
+    showToast(`💫 TỎA SÁNG! Đẩy lùi và làm choáng ${evt.data.stunned_ids.length} Bóng Mực!`);
+  } else if (evt.name === 'player_hit') {
+    triggerFlashDamage();
+    showToast(`💔 Mây bị Bóng Mực tấn công! Mất 1 Sinh Lực, rơi ${evt.data.dropped} đom đóm!`);
   }
 }
 
@@ -334,6 +406,36 @@ function updateHUD() {
   document.getElementById('hud-lanterns').innerText = `${litCount} / 5`;
   document.getElementById('hud-time').innerText = `${Math.ceil(engine.time_left_s)}s`;
   document.getElementById('hud-score').innerText = engine.score;
+
+  // Brighten island ambient lighting as lanterns light up
+  if (ambientLight) {
+    ambientLight.intensity = 1.0 + (litCount * 0.3);
+  }
+
+  // Interaction Prompt for closest unlit lantern
+  const prompt = document.getElementById('interact-prompt');
+  let nearLantern = null;
+  let minD = Infinity;
+  for (const lan of engine.lanterns) {
+    if (!lan.lit) {
+      const d = Math.hypot(engine.player.pos[0] - lan.pos[0], engine.player.pos[2] - lan.pos[2]);
+      if (d <= engine.tuning.interact_radius && d < minD) {
+        minD = d;
+        nearLantern = lan;
+      }
+    }
+  }
+
+  if (nearLantern && prompt) {
+    prompt.classList.remove('hidden');
+    if (engine.player.carried > 0) {
+      prompt.innerHTML = `💡 Bấm <b>[E]</b> để nạp Đom Đóm vào <b>${nearLantern.id}</b> (${nearLantern.deposited}/${engine.tuning.lantern_cost})`;
+    } else {
+      prompt.innerHTML = `⚠️ Đứng gần <b>${nearLantern.id}</b>! Cần tìm thêm Đom Đóm để nạp!`;
+    }
+  } else if (prompt) {
+    prompt.classList.add('hidden');
+  }
 
   // Check Game Over Overlay
   const overlay = document.getElementById('message-overlay');
@@ -368,14 +470,17 @@ function gameLoop(now) {
   // Run simulation ticks
   while (now - lastTickTime >= TICK_INTERVAL) {
     updateInput();
-    engine.step();
+    const events = engine.step();
+    for (const evt of events) {
+      handleGameEvent(evt);
+    }
     lastTickTime += TICK_INTERVAL;
   }
 
   // Pulse animation expansion
   if (pulseEffectMesh && pulseEffectMesh.visible) {
-    pulseEffectMesh.scale.addScalar(0.25);
-    pulseEffectMesh.material.opacity -= 0.03;
+    pulseEffectMesh.scale.addScalar(0.35);
+    pulseEffectMesh.material.opacity -= 0.04;
     if (pulseEffectMesh.material.opacity <= 0) {
       pulseEffectMesh.visible = false;
     }
@@ -390,6 +495,15 @@ function gameLoop(now) {
   // Sync entity positions
   syncEntities();
   playerMesh.position.set(engine.player.pos[0], engine.player.pos[1], engine.player.pos[2]);
+
+  // Invulnerability flicker
+  if (playerMesh) {
+    if (engine.player.invuln_timer > 0) {
+      playerMesh.visible = (Math.floor(now / 80) % 2 === 0);
+    } else {
+      playerMesh.visible = true;
+    }
+  }
 
   // Rotate player mesh toward movement direction
   const [mx, mz] = engine.current_input.move || [0, 0];

@@ -225,9 +225,23 @@ class GameEngine {
     }
 
     // Edge triggers
+    const jump_triggered = this.current_input.jump && !this.prev_input.jump;
     const interact_triggered = this.current_input.interact && !this.prev_input.interact;
     const pulse_triggered = this.current_input.pulse && !this.prev_input.pulse;
     this.prev_input = Object.assign({}, this.current_input);
+
+    // Jump physics
+    if (jump_triggered && this.player.pos[1] <= 0.001) {
+      this.player.vy = 6.0;
+    }
+    if (this.player.pos[1] > 0 || (this.player.vy && this.player.vy > 0)) {
+      this.player.vy = (this.player.vy || 0) - (18.0 / 60.0);
+      this.player.pos[1] = Math.max(0, this.player.pos[1] + (this.player.vy / 60.0));
+      if (this.player.pos[1] <= 0.0001) {
+        this.player.pos[1] = 0.0;
+        this.player.vy = 0;
+      }
+    }
 
     // 2. Player movement
     const [mx, mz] = this.current_input.move || [0, 0];

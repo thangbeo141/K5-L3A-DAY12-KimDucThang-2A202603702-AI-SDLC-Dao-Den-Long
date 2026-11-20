@@ -38,12 +38,24 @@
 
     <!-- Instruction Help -->
     <div class="hud-controls">
-      <p>🎮 <b>W, A, S, D / Phím Mũi Tên</b>: Di chuyển</p>
+      <p>🎮 <b>W, A, S, D</b>: Di chuyển</p>
+      <p>🦘 <b>Space</b>: Nhảy (Jump)</p>
       <p>💡 <b>E</b>: Thắp Đèn Lồng (khi ở gần)</p>
-      <p>💫 <b>Space / F</b>: Tỏa Sáng (Pulse xua Bóng Mực)</p>
+      <p>💫 <b>F / Q</b>: Tỏa Sáng (Pulse xua Bóng Mực)</p>
       <p>🖱️ <b>Kéo Chuột</b>: Xoay góc nhìn Camera 3D</p>
     </div>
   </div>
+
+  <!-- Red Flash on Hit -->
+  <div id="flash-overlay"></div>
+
+  <!-- Interaction Prompt -->
+  <div id="interact-prompt" class="hidden">
+    💡 Bấm <b>[E]</b> để nạp Đom Đóm vào Đèn Lồng
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
 
   <!-- Notification Banner -->
   <div id="message-overlay" class="hidden">
