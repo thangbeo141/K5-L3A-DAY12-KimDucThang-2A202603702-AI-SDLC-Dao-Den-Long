@@ -392,8 +392,8 @@ function updateInput() {
   let mx = 0, mz = 0;
   if (keys['w'] || keys['arrowup']) mz += 1;
   if (keys['s'] || keys['arrowdown']) mz -= 1;
-  if (keys['d'] || keys['arrowright']) mx += 1; // Right
-  if (keys['a'] || keys['arrowleft']) mx -= 1;  // Left
+  if (keys['a'] || keys['arrowleft']) mx += 1;  // Di chuyển sang trái trên màn hình
+  if (keys['d'] || keys['arrowright']) mx -= 1; // Di chuyển sang phải trên màn hình
 
   const deg = (camYaw * 180 / Math.PI) % 360;
   engine.setInput({
