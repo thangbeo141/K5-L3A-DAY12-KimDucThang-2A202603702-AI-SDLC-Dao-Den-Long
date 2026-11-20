@@ -359,35 +359,32 @@ class GameEngine {
       const r = Math.hypot(x, z);
       if (r > 45.0) return null; // Outside island
 
-      // Central bell tower obstacle on Tier 2
-      if (r < 2.0 && this.player.pos[1] >= 5.5) {
-        return 6.0; // Tower base
-      }
-
-      // Tier 2: Disc R <= 8m
+      // Tier 2: Disc R <= 8m, Y=6
       if (r <= 8.0) return 6.0;
 
-      // Tier 1: Ring R in [12, 24] with z > 0
-      if (r >= 12.0 && r <= 24.0 && z > 0) return 3.0;
-
-      // 2 Ramps width 3m along 30° and 150° between R=24 and R=30
+      // 2 Ramps width 3.2m along 30° and 150° between R=23.5 and R=30.5
       // Check Ramp 1 (30°):
       const ang30 = Math.PI / 6;
       const dot30 = x * Math.cos(ang30) + z * Math.sin(ang30);
       const perp30 = Math.abs(-x * Math.sin(ang30) + z * Math.cos(ang30));
-      if (dot30 >= 24.0 && dot30 <= 30.0 && perp30 <= 1.5) {
+      if (dot30 >= 23.5 && dot30 <= 30.5 && perp30 <= 1.6) {
+        if (dot30 <= 24.0) return 3.0;
         const t = (30.0 - dot30) / 6.0;
-        return t * 3.0;
+        return Math.max(0.0, Math.min(3.0, t * 3.0));
       }
 
       // Check Ramp 2 (150°):
       const ang150 = 5 * Math.PI / 6;
       const dot150 = x * Math.cos(ang150) + z * Math.sin(ang150);
       const perp150 = Math.abs(-x * Math.sin(ang150) + z * Math.cos(ang150));
-      if (dot150 >= 24.0 && dot150 <= 30.0 && perp150 <= 1.5) {
+      if (dot150 >= 23.5 && dot150 <= 30.5 && perp150 <= 1.6) {
+        if (dot150 <= 24.0) return 3.0;
         const t = (30.0 - dot150) / 6.0;
-        return t * 3.0;
+        return Math.max(0.0, Math.min(3.0, t * 3.0));
       }
+
+      // Tier 1: Ring R in [11.5, 24.5] with z > 0, Y=3
+      if (r >= 11.5 && r <= 24.5 && z > 0) return 3.0;
 
       // Default Tier 0 (Y=0)
       return 0.0;
@@ -737,9 +734,9 @@ class GameEngine {
       // Ground collision & Cliff blocking
       let groundY = this.getGroundHeight(this.player.pos[0], this.player.pos[2]);
 
-      // Vertical cliff face check: cannot walk up cliffs (> 0.5m higher) unless in launch flight
+      // Vertical cliff face check: cannot walk up cliffs (> 1.2m higher) unless in launch flight
       if (!this.player.in_launch_flight) {
-        if (groundY !== null && groundY > this.player.pos[1] + 0.5) {
+        if (groundY !== null && groundY > this.player.pos[1] + 1.2) {
           this.player.pos[0] = prev_x;
           this.player.pos[2] = prev_z;
           groundY = this.getGroundHeight(this.player.pos[0], this.player.pos[2]);

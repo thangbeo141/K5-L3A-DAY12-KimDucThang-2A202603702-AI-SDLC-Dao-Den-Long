@@ -27,6 +27,7 @@ let mouseSensitivity = 1.0;
 let soundVolume = 0.8;
 let lastTickTime = performance.now();
 const TICK_INTERVAL = 1000 / 60;
+let gameLoopRunning = false;
 
 // Settings & LocalStorage
 function loadSavedSettings() {
@@ -251,20 +252,39 @@ function buildEnvironment(night) {
     environmentGroup.add(tier0);
 
     // Tier 1: Half-annulus R in [12, 24], z > 0, Y=3
-    const tier1Shape = new THREE.Shape();
-    tier1Shape.absarc(0, 0, 24, Math.PI, 2 * Math.PI, false);
-    tier1Shape.absarc(0, 0, 12, 2 * Math.PI, Math.PI, true);
+    // Top surface
+    const tier1TopGeo = new THREE.RingGeometry(12, 24, 48, 1, 0, Math.PI);
+    const tier1Top = new THREE.Mesh(tier1TopGeo, sandMat);
+    tier1Top.rotation.x = -Math.PI / 2;
+    tier1Top.position.set(0, 3.0, 0);
+    tier1Top.receiveShadow = true;
+    environmentGroup.add(tier1Top);
 
-    const tier1Geo = new THREE.ExtrudeGeometry(tier1Shape, {
-      depth: 3,
-      bevelEnabled: false,
-      curveSegments: 36
-    });
-    const tier1 = new THREE.Mesh(tier1Geo, sandMat);
-    tier1.rotation.x = -Math.PI / 2;
-    tier1.position.set(0, 0, 0);
-    tier1.receiveShadow = true;
-    environmentGroup.add(tier1);
+    // Outer vertical wall (R=24, from Y=0 to Y=3 in z > 0)
+    const tier1OuterGeo = new THREE.CylinderGeometry(24, 24, 3, 48, 1, true, -Math.PI / 2, Math.PI);
+    const tier1Outer = new THREE.Mesh(tier1OuterGeo, sandMat);
+    tier1Outer.position.set(0, 1.5, 0);
+    tier1Outer.receiveShadow = true;
+    environmentGroup.add(tier1Outer);
+
+    // Inner vertical wall (R=12, from Y=0 to Y=3 in z > 0)
+    const tier1InnerGeo = new THREE.CylinderGeometry(12, 12, 3, 32, 1, true, -Math.PI / 2, Math.PI);
+    const tier1Inner = new THREE.Mesh(tier1InnerGeo, sandMat);
+    tier1Inner.position.set(0, 1.5, 0);
+    tier1Inner.receiveShadow = true;
+    environmentGroup.add(tier1Inner);
+
+    // End caps along z=0 (x in [12, 24] and x in [-24, -12])
+    const capGeo = new THREE.BoxGeometry(12, 3, 0.2);
+    const cap1 = new THREE.Mesh(capGeo, sandMat);
+    cap1.position.set(18, 1.5, 0);
+    cap1.receiveShadow = true;
+    environmentGroup.add(cap1);
+
+    const cap2 = new THREE.Mesh(capGeo, sandMat);
+    cap2.position.set(-18, 1.5, 0);
+    cap2.receiveShadow = true;
+    environmentGroup.add(cap2);
 
     // Tier 2: Disc R=8m, Y=6
     const tier2 = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 6, 32), grassMat);
@@ -870,21 +890,34 @@ function startCurrentNight() {
   document.getElementById('night-intro').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
 
+  // Clean up all entity meshes from previous night
+  if (playerMesh) {
+    scene.remove(playerMesh);
+    playerMesh = null;
+  }
+  for (const id in moteMeshes) scene.remove(moteMeshes[id]);
+  moteMeshes = {};
+  for (const id in shadeMeshes) scene.remove(shadeMeshes[id].mesh);
+  shadeMeshes = {};
+  for (const id in drifterMeshes) scene.remove(drifterMeshes[id]);
+  drifterMeshes = {};
+  for (const id in lanternMeshes) scene.remove(lanternMeshes[id].group);
+  lanternMeshes = {};
+  for (const id in charmMeshes) scene.remove(charmMeshes[id]);
+  charmMeshes = {};
+
   buildEnvironment(currentNight);
   buildPlayerMesh();
 
   engine = new GameEngine(null, Date.now(), currentNight);
   engine.applyScenario(null);
 
-  lanternMeshes = {};
-  moteMeshes = {};
-  shadeMeshes = {};
-  drifterMeshes = {};
-  charmMeshes = {};
-
   syncEntities();
   lastTickTime = performance.now();
-  requestAnimationFrame(gameLoop);
+  if (!gameLoopRunning) {
+    gameLoopRunning = true;
+    requestAnimationFrame(gameLoop);
+  }
 }
 
 function restartCurrentNight() {
