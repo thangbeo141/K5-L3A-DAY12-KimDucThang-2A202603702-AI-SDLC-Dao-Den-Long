@@ -215,7 +215,7 @@ function syncEntities() {
       delete moteMeshes[id];
     }
   }
-  // Add new
+  // Add new or update position
   for (const mote of engine.motes) {
     if (!moteMeshes[mote.id]) {
       const g = new THREE.Group();
@@ -226,10 +226,12 @@ function syncEntities() {
       g.add(orb);
       const l = new THREE.PointLight(0xffd54f, 1.2, 4);
       g.add(l);
-      g.position.set(mote.pos[0], 0.6, mote.pos[2]);
+      g.position.y = 0.6;
       scene.add(g);
       moteMeshes[mote.id] = g;
     }
+    moteMeshes[mote.id].position.x = mote.pos[0];
+    moteMeshes[mote.id].position.z = mote.pos[2];
   }
 
   // Sync Shades
@@ -278,65 +280,65 @@ function syncEntities() {
 
 function setupControls() {
   window.addEventListener('keydown', e => {
-    const k = e.key.toLowerCase();
-    keys[k] = true;
-    if (e.key === ' ') {
-      keys['space'] = true;
-      e.preventDefault();
-    }
+      const k = e.key.toLowerCase();
+      keys[k] = true;
+      if (e.key === ' ') {
+        keys['space'] = true;
+        e.preventDefault();
+      }
 
-    // Friendly instant feedback when trying to interact without conditions
-    if (k === 'e') {
-      let near = false;
-      for (const lan of engine.lanterns) {
-        if (!lan.lit && Math.hypot(engine.player.pos[0] - lan.pos[0], engine.player.pos[2] - lan.pos[2]) <= engine.tuning.interact_radius) {
-          near = true;
-          break;
+      // Friendly instant feedback when trying to interact without conditions
+      if (k === 'e') {
+        let near = false;
+        for (const lan of engine.lanterns) {
+          if (!lan.lit && Math.hypot(engine.player.pos[0] - lan.pos[0], engine.player.pos[2] - lan.pos[2]) <= engine.tuning.interact_radius) {
+            near = true;
+            break;
+          }
         }
-      }
-      if (!near) {
-        showToast("💡 Hãy lại gần chân cột Đèn Lồng Lớn rồi bấm [E] nhé!");
-      } else if (engine.player.carried <= 0) {
-        showToast("⚠️ Túi rỗng (0 đom đóm)! Hãy đi nhặt các đốm vàng trước!");
-      }
-    }
+          if (!near) {
+            showToast("💡 Hãy lại gần chân cột Đèn Lồng Lớn rồi bấm [E] nhé!");
+          } else if (engine.player.carried <= 0) {
+            showToast("⚠️ Túi rỗng (0 đom đóm)! Hãy đi nhặt các đốm vàng trước!");
+          }
+          }
 
-    if (k === 'f' || k === 'q') {
-      if (engine.player.carried < engine.tuning.pulse_cost) {
-        showToast("⚠️ Cần ít nhất 1 đom đóm để Tỏa Sáng [F]!");
-      } else if (engine.player.pulse_cooldown > 0) {
-        showToast("⏳ Đang hồi chiêu Tỏa Sáng...");
-      }
-    }
+          if (k === 'f' || k === 'q') {
+            if (engine.player.carried < engine.tuning.pulse_cost) {
+              showToast("⚠️ Cần ít nhất 1 đom đóm để Tỏa Sáng [F]!");
+            } else if (engine.player.pulse_cooldown > 0) {
+              showToast("⏳ Đang hồi chiêu Tỏa Sáng...");
+            }
+}
   });
 
-  window.addEventListener('keyup', e => {
-    const k = e.key.toLowerCase();
-    keys[k] = false;
-    if (e.key === ' ') {
-      keys['space'] = false;
-    }
+window.addEventListener('keyup', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = false;
+  if (e.key === ' ') {
+    keys['space'] = false;
+  }
   });
 
-  window.addEventListener('mousedown', e => {
-    isMouseDown = true;
+window.addEventListener('mousedown', e => {
+  isMouseDown = true;
+  prevMouseX = e.clientX;
+  prevMouseY = e.clientY;
+});
+
+window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+window.addEventListener('mousemove', e => {
+  if (isMouseDown) {
+    const deltaX = e.clientX - prevMouseX;
+    const deltaY = e.clientY - prevMouseY;
     prevMouseX = e.clientX;
     prevMouseY = e.clientY;
-  });
 
-  window.addEventListener('mouseup', () => { isMouseDown = false; });
-
-  window.addEventListener('mousemove', e => {
-    if (isMouseDown) {
-      const deltaX = e.clientX - prevMouseX;
-      const deltaY = e.clientY - prevMouseY;
-      prevMouseX = e.clientX;
-      prevMouseY = e.clientY;
-
-      camYaw -= deltaX * 0.005;
-      camPitch = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, camPitch + deltaY * 0.005));
-    }
-  });
+    camYaw -= deltaX * 0.005;
+    camPitch = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, camPitch + deltaY * 0.005));
+  }
+});
 }
 
 function showToast(msg) {
@@ -405,7 +407,25 @@ function updateInput() {
 function updateHUD() {
   const flamesStr = '❤️'.repeat(Math.max(0, engine.player.flames));
   document.getElementById('hud-flames').innerText = flamesStr || '💀 Hết';
-  document.getElementById('hud-motes').innerText = `${engine.player.carried} / ${engine.tuning.carry_capacity}`;
+  const isFull = engine.player.carried >= engine.tuning.carry_capacity;
+  const motesEl = document.getElementById('hud-motes');
+  if (isFull) {
+    motesEl.innerText = `${engine.player.carried} / ${engine.tuning.carry_capacity} (ĐẦY TÚI!)`;
+    motesEl.style.color = '#ffa726';
+    for (const mote of engine.motes) {
+      const d = Math.hypot(engine.player.pos[0] - mote.pos[0], engine.player.pos[2] - mote.pos[2]);
+      if (d <= engine.tuning.pickup_radius + 0.8) {
+        if (!window._lastBagFullToast || Date.now() - window._lastBagFullToast > 3000) {
+          window._lastBagFullToast = Date.now();
+          showToast("🎒 Túi đom đóm đã ĐẦY (5/5)! Hãy lại Đèn Lồng bấm [E] nạp trước nhé!");
+        }
+        break;
+      }
+    }
+  } else {
+    motesEl.innerText = `${engine.player.carried} / ${engine.tuning.carry_capacity}`;
+    motesEl.style.color = '#ffffff';
+  }
 
   const litCount = engine.lanterns.filter(l => l.lit).length;
   document.getElementById('hud-lanterns').innerText = `${litCount} / 5`;
@@ -463,6 +483,19 @@ function updateHUD() {
 }
 
 function restartGame() {
+  for (const id in moteMeshes) {
+    scene.remove(moteMeshes[id]);
+  }
+  moteMeshes = {};
+  for (const id in shadeMeshes) {
+    scene.remove(shadeMeshes[id].mesh);
+  }
+  shadeMeshes = {};
+  for (const id in lanternMeshes) {
+    scene.remove(lanternMeshes[id].group);
+  }
+  lanternMeshes = {};
+
   engine = new GameEngine(null, Date.now());
   engine.applyScenario(null);
   document.getElementById('message-overlay').classList.add('hidden');
