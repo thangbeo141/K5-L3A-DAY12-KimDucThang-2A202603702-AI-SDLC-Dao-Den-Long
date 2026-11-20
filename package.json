@@ -1,0 +1,22 @@
+{
+  "name": "dao-den-long",
+  "version": "1.0.0",
+  "description": "3D Game Đảo Đèn Lồng (Lantern Island) - AI SDLC Day 12",
+  "main": "src/headless.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/run_tests.js"
+  },
+  "keywords": [
+    "game",
+    "3d",
+    "threejs",
+    "headless",
+    "sdlc"
+  ],
+  "author": "Kim Đức Thắng",
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.160.0"
+  }
+}

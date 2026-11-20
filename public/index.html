@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đảo Đèn Lồng - Đêm 1: Đảo Bến</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Three.js from CDN with fallback -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <!-- HUD Interface -->
+  <div id="hud">
+    <div class="hud-top">
+      <div class="hud-card">
+        <div class="hud-label">🔥 Sinh Lực (Flames)</div>
+        <div id="hud-flames" class="hud-value">❤️❤️❤️</div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-label">✨ Đom Đóm Đang Giữ</div>
+        <div id="hud-motes" class="hud-value">0 / 5</div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-label">🏮 Đèn Đã Thắp</div>
+        <div id="hud-lanterns" class="hud-value">0 / 5</div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-label">⏳ Thời Gian</div>
+        <div id="hud-time" class="hud-value">300s</div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-label">🏆 Điểm Số</div>
+        <div id="hud-score" class="hud-value">0</div>
+      </div>
+    </div>
+
+    <!-- Instruction Help -->
+    <div class="hud-controls">
+      <p>🎮 <b>W, A, S, D / Phím Mũi Tên</b>: Di chuyển</p>
+      <p>💡 <b>E</b>: Thắp Đèn Lồng (khi ở gần)</p>
+      <p>💫 <b>Space / F</b>: Tỏa Sáng (Pulse xua Bóng Mực)</p>
+      <p>🖱️ <b>Kéo Chuột</b>: Xoay góc nhìn Camera 3D</p>
+    </div>
+  </div>
+
+  <!-- Notification Banner -->
+  <div id="message-overlay" class="hidden">
+    <div class="overlay-box">
+      <h1 id="overlay-title">Chiến Thắng!</h1>
+      <p id="overlay-desc">Mây đã thắp sáng toàn bộ 5 Đèn Lồng lớn trên đảo!</p>
+      <button id="btn-restart" onclick="restartGame()">Chơi Lại (Restart)</button>
+    </div>
+  </div>
+
+  <script src="src/engine.js"></script>
+  <script src="game3d.js"></script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #0b0c1b;
+  color: #fff;
+}
+
+#game-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+#hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
+}
+
+.hud-top {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.hud-card {
+  background: rgba(15, 18, 38, 0.75);
+  border: 1px solid rgba(255, 183, 77, 0.4);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), 0 0 10px rgba(255, 183, 77, 0.2);
+  border-radius: 12px;
+  padding: 10px 18px;
+  backdrop-filter: blur(8px);
+}
+
+.hud-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #ffcc80;
+  margin-bottom: 4px;
+}
+
+.hud-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.hud-controls {
+  background: rgba(15, 18, 38, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 12px 18px;
+  width: fit-content;
+  backdrop-filter: blur(6px);
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cfd8dc;
+}
+
+.hud-controls b {
+  color: #ffd54f;
+}
+
+#message-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 11, 26, 0.85);
+  backdrop-filter: blur(10px);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.overlay-box {
+  background: linear-gradient(135deg, #1a1e36, #0e1124);
+  border: 2px solid #ffb74d;
+  box-shadow: 0 0 30px rgba(255, 183, 77, 0.4);
+  padding: 40px;
+  border-radius: 20px;
+  text-align: center;
+  max-width: 450px;
+}
+
+.overlay-box h1 {
+  font-size: 32px;
+  color: #ffa726;
+  margin-bottom: 12px;
+}
+
+.overlay-box p {
+  font-size: 16px;
+  color: #e0e0e0;
+  margin-bottom: 25px;
+  line-height: 1.5;
+}
+
+#btn-restart {
+  background: linear-gradient(45deg, #ffa726, #fb8c00);
+  border: none;
+  padding: 12px 30px;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  pointer-events: auto;
+}
+
+#btn-restart:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 167, 38, 0.6);
+}
