@@ -290,65 +290,65 @@ function syncEntities() {
 
 function setupControls() {
   window.addEventListener('keydown', e => {
-      const k = e.key.toLowerCase();
-      keys[k] = true;
-      if (e.key === ' ') {
-        keys['space'] = true;
-        e.preventDefault();
-      }
+    const k = e.key.toLowerCase();
+    keys[k] = true;
+    if (e.key === ' ') {
+      keys['space'] = true;
+      e.preventDefault();
+    }
 
-      // Friendly instant feedback when trying to interact without conditions
-      if (k === 'e') {
-        let near = false;
-        for (const lan of engine.lanterns) {
-          if (!lan.lit && Math.hypot(engine.player.pos[0] - lan.pos[0], engine.player.pos[2] - lan.pos[2]) <= engine.tuning.interact_radius) {
-            near = true;
-            break;
-          }
+    // Friendly instant feedback when trying to interact without conditions
+    if (k === 'e') {
+      let near = false;
+      for (const lan of engine.lanterns) {
+        if (!lan.lit && Math.hypot(engine.player.pos[0] - lan.pos[0], engine.player.pos[2] - lan.pos[2]) <= engine.tuning.interact_radius) {
+          near = true;
+          break;
         }
-          if (!near) {
-            showToast("💡 Hãy lại gần chân cột Đèn Lồng Lớn rồi bấm [E] nhé!");
-          } else if (engine.player.carried <= 0) {
-            showToast("⚠️ Túi rỗng (0 đom đóm)! Hãy đi nhặt các đốm vàng trước!");
-          }
-          }
+      }
+      if (!near) {
+        showToast("💡 Hãy lại gần chân cột Đèn Lồng Lớn rồi bấm [E] nhé!");
+      } else if (engine.player.carried <= 0) {
+        showToast("⚠️ Túi rỗng (0 đom đóm)! Hãy đi nhặt các đốm vàng trước!");
+      }
+    }
 
-          if (k === 'f' || k === 'q') {
-            if (engine.player.carried < engine.tuning.pulse_cost) {
-              showToast("⚠️ Cần ít nhất 1 đom đóm để Tỏa Sáng [F]!");
-            } else if (engine.player.pulse_cooldown > 0) {
-              showToast("⏳ Đang hồi chiêu Tỏa Sáng...");
-            }
-}
+    if (k === 'f' || k === 'q') {
+      if (engine.player.carried < engine.tuning.pulse_cost) {
+        showToast("⚠️ Cần ít nhất 1 đom đóm để Tỏa Sáng [F]!");
+      } else if (engine.player.pulse_cooldown > 0) {
+        showToast("⏳ Đang hồi chiêu Tỏa Sáng...");
+      }
+    }
   });
 
-window.addEventListener('keyup', e => {
-  const k = e.key.toLowerCase();
-  keys[k] = false;
-  if (e.key === ' ') {
-    keys['space'] = false;
-  }
+  window.addEventListener('keyup', e => {
+    const k = e.key.toLowerCase();
+    keys[k] = false;
+    if (e.key === ' ') {
+      keys['space'] = false;
+    }
   });
 
-window.addEventListener('mousedown', e => {
-  isMouseDown = true;
-  prevMouseX = e.clientX;
-  prevMouseY = e.clientY;
-});
-
-window.addEventListener('mouseup', () => { isMouseDown = false; });
-
-window.addEventListener('mousemove', e => {
-  if (isMouseDown) {
-    const deltaX = e.clientX - prevMouseX;
-    const deltaY = e.clientY - prevMouseY;
+  window.addEventListener('mousedown', e => {
+    isMouseDown = true;
     prevMouseX = e.clientX;
     prevMouseY = e.clientY;
+  });
 
-    camYaw -= deltaX * 0.005;
-    camPitch = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, camPitch + deltaY * 0.005));
-  }
-});
+  window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+  window.addEventListener('mousemove', e => {
+    if (isMouseDown) {
+      const deltaX = e.clientX - prevMouseX;
+      const deltaY = e.clientY - prevMouseY;
+      prevMouseX = e.clientX;
+      prevMouseY = e.clientY;
+
+      camYaw -= deltaX * 0.005;
+      camPitch = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, camPitch + deltaY * 0.005));
+    }
+  });
 }
 
 function showToast(msg) {
