@@ -250,10 +250,20 @@ function buildEnvironment(night) {
     tier0.position.set(0, -4, 0);
     environmentGroup.add(tier0);
 
-    // Tier 1: Ring R in [12, 24], z > 0, Y=3
-    const tier1Geo = new THREE.CylinderGeometry(24, 24, 3, 32, 1, false, 0, Math.PI);
+    // Tier 1: Half-annulus R in [12, 24], z > 0, Y=3
+    const tier1Shape = new THREE.Shape();
+    tier1Shape.absarc(0, 0, 24, Math.PI, 2 * Math.PI, false);
+    tier1Shape.absarc(0, 0, 12, 2 * Math.PI, Math.PI, true);
+
+    const tier1Geo = new THREE.ExtrudeGeometry(tier1Shape, {
+      depth: 3,
+      bevelEnabled: false,
+      curveSegments: 36
+    });
     const tier1 = new THREE.Mesh(tier1Geo, sandMat);
-    tier1.position.set(0, 1.5, 0);
+    tier1.rotation.x = -Math.PI / 2;
+    tier1.position.set(0, 0, 0);
+    tier1.receiveShadow = true;
     environmentGroup.add(tier1);
 
     // Tier 2: Disc R=8m, Y=6
@@ -297,15 +307,24 @@ function createLaunchPadMesh(x, y, z) {
 
 function createRampMesh(deg) {
   const ang = (deg * Math.PI) / 180;
-  const ramp = new THREE.Mesh(
-    new THREE.BoxGeometry(6, 0.3, 3),
+  const rampGroup = new THREE.Group();
+
+  // Ramp has horizontal run 6m (from R=30 to R=24) and vertical rise 3m (from Y=0 to Y=3)
+  // Length along slope: hypot(6, 3) = 6.708m. Width = 3m, thickness = 0.3m.
+  const rampBox = new THREE.Mesh(
+    new THREE.BoxGeometry(6.708, 0.3, 3),
     new THREE.MeshStandardMaterial({ color: 0x6B4A2F, roughness: 0.85 })
   );
-  const midR = 27;
-  ramp.position.set(midR * Math.cos(ang), 1.5, midR * Math.sin(ang));
-  ramp.rotation.y = -ang;
-  ramp.rotation.z = Math.atan2(3, 6);
-  environmentGroup.add(ramp);
+  // Center is at R = 27m, Y = 1.5m
+  rampBox.position.set(27, 1.5, 0);
+  // Outer end (R=30, x > 27) goes down to Y=0, inner end (R=24, x < 27) goes up to Y=3
+  rampBox.rotation.z = -Math.atan2(3, 6);
+  rampBox.receiveShadow = true;
+  rampGroup.add(rampBox);
+
+  // Rotate group around Y axis so it points at angle deg in XZ plane
+  rampGroup.rotation.y = -ang;
+  environmentGroup.add(rampGroup);
 }
 
 // Bé Mây Player Mesh with Nón Lá & Red Scarf (#C8102E)

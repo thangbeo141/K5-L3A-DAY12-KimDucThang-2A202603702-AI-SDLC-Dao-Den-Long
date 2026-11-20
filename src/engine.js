@@ -202,7 +202,7 @@ function getNight3Map() {
   return {
     night: 3,
     duration_s: 360,
-    start_pos: [0.0, 0.0, 0.0],
+    start_pos: [0.0, 0.0, -20.0],
     lanterns,
     moteSpawnPoints,
     shadeSpawnPoints,
@@ -470,7 +470,8 @@ class GameEngine {
           state,
           state_timer: state_ticks_left,
           push_timer: 0,
-          push_dir: [1.0, 0.0]
+          push_dir: [1.0, 0.0],
+          evict_timer: 0
         };
       });
     } else if (scenario.random_shades === false) {
@@ -668,6 +669,10 @@ class GameEngine {
         this.player.grounded = false;
       }
 
+      // Store previous horizontal position for cliff & obstacle collision
+      const prev_x = this.player.pos[0];
+      const prev_z = this.player.pos[2];
+
       // Horizontal movement calculation
       if (this.player.dash_timer > 0) {
         // Dashing: horizontal velocity locked to dash speed, vertical maintains current height
@@ -729,8 +734,24 @@ class GameEngine {
         }
       }
 
-      // Ground collision
-      const groundY = this.getGroundHeight(this.player.pos[0], this.player.pos[2]);
+      // Ground collision & Cliff blocking
+      let groundY = this.getGroundHeight(this.player.pos[0], this.player.pos[2]);
+
+      // Vertical cliff face check: cannot walk up cliffs (> 0.5m higher) unless in launch flight
+      if (!this.player.in_launch_flight) {
+        if (groundY !== null && groundY > this.player.pos[1] + 0.5) {
+          this.player.pos[0] = prev_x;
+          this.player.pos[2] = prev_z;
+          groundY = this.getGroundHeight(this.player.pos[0], this.player.pos[2]);
+        }
+        // Bell tower obstacle on Tier 2
+        if (this.night === 3 && this.player.pos[1] >= 5.5 && Math.hypot(this.player.pos[0], this.player.pos[2]) < 2.0) {
+          this.player.pos[0] = prev_x;
+          this.player.pos[2] = prev_z;
+          groundY = this.getGroundHeight(this.player.pos[0], this.player.pos[2]);
+        }
+      }
+
       if (groundY !== null) {
         if (this.player.pos[1] <= groundY + 0.05 && this.player.vel[1] <= 0) {
           this.player.pos[1] = groundY;
@@ -1027,7 +1048,35 @@ class GameEngine {
             }
           }
 
-          if (!blocked && s.evict_timer <= 0) {
+          if (!blocked && (s.evict_timer || 0) <= 0) {
+            s.pos[0] = next_x;
+            s.pos[2] = next_z;
+          }
+        } else if (s.state === "wander" && (s.evict_timer || 0) <= 0) {
+          // In wander mode, patrol/wander inwards or roam at 2.0 m/s so shades explore island
+          const wanderSpeed = 2.0 / 60.0;
+          const distToCenter = Math.hypot(s.pos[0], s.pos[2]);
+          let wx = 0, wz = 0;
+          if (distToCenter > 15.0) {
+            wx = (-s.pos[0] / distToCenter) * wanderSpeed;
+            wz = (-s.pos[2] / distToCenter) * wanderSpeed;
+          } else {
+            const ang = (this.sim_tick * 0.02) + (parseInt(s.id.slice(1)) || 0);
+            wx = Math.cos(ang) * wanderSpeed;
+            wz = Math.sin(ang) * wanderSpeed;
+          }
+          let next_x = s.pos[0] + wx;
+          let next_z = s.pos[2] + wz;
+
+          // Safe zone check
+          let blocked = false;
+          for (const lan of this.lanterns) {
+            if (lan.lit && Math.hypot(next_x - lan.pos[0], next_z - lan.pos[2]) < this.tuning.safe_radius) {
+              blocked = true;
+              break;
+            }
+          }
+          if (!blocked) {
             s.pos[0] = next_x;
             s.pos[2] = next_z;
           }
@@ -1106,9 +1155,10 @@ class GameEngine {
       // Shades hit (max 1 hit per tick, sorted by id ascending)
       const sortedShades = [...this.shades].sort((a, b) => a.id.localeCompare(b.id));
       let hitDealtThisTick = false;
+      const isPlayerSafe = this.lanterns.some(l => l.lit && Math.hypot(this.player.pos[0] - l.pos[0], this.player.pos[2] - l.pos[2]) < this.tuning.safe_radius);
 
       for (const s of sortedShades) {
-        if (s.state === "chase" && s.evict_timer <= 0) {
+        if (!isPlayerSafe && s.state === "chase" && (s.evict_timer || 0) <= 0) {
           const distXZ = Math.hypot(this.player.pos[0] - s.pos[0], this.player.pos[2] - s.pos[2]);
           const distY = Math.abs(this.player.pos[1] - s.pos[1]);
 
@@ -1209,7 +1259,8 @@ class GameEngine {
             state: "spawning",
             state_timer: 30,
             push_timer: 0,
-            push_dir: [1.0, 0.0]
+            push_dir: [1.0, 0.0],
+            evict_timer: 0
           });
         }
       }
