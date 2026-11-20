@@ -220,13 +220,22 @@ function syncEntities() {
   for (const mote of engine.motes) {
     if (!moteMeshes[mote.id]) {
       const g = new THREE.Group();
+      // Lõi phát sáng (Glowing inner core)
       const orb = new THREE.Mesh(
-        new THREE.SphereGeometry(0.25, 12, 12),
-        new THREE.MeshBasicMaterial({ color: 0xffeb3b })
+        new THREE.SphereGeometry(0.22, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0xfff59d })
       );
       g.add(orb);
-      const l = new THREE.PointLight(0xffd54f, 1.2, 4);
-      g.add(l);
+      // Quầng sáng mềm (Soft outer halo - không dùng PointLight để tránh recompilation shader)
+      const halo = new THREE.Mesh(
+        new THREE.SphereGeometry(0.42, 10, 10),
+        new THREE.MeshBasicMaterial({
+          color: 0xffd54f,
+          transparent: true,
+          opacity: 0.35
+        })
+      );
+      g.add(halo);
       g.position.y = 0.6;
       scene.add(g);
       moteMeshes[mote.id] = g;
@@ -374,7 +383,7 @@ function triggerPulseVisual() {
 
 function handleGameEvent(evt) {
   if (evt.name === 'mote_picked') {
-    showToast(`✨ Nhặt được Đom Đóm! (${evt.data.carried}/${engine.tuning.carry_capacity})`);
+    // HUD cập nhật tức thì (60 FPS); không tạo toast DOM liên tục để tránh giật lag
   } else if (evt.name === 'deposit') {
     showToast(`🏮 Nạp ${evt.data.amount} đom đóm vào ${evt.data.lantern_id} (${evt.data.deposited}/${engine.tuning.lantern_cost})`);
   } else if (evt.name === 'lantern_lit') {
