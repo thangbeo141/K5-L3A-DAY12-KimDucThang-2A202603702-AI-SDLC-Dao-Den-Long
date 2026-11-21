@@ -175,7 +175,10 @@ html {
 
 .mote-slots {
   display: flex;
-  gap: 6px;
+  gap: 5px;
+  flex-wrap: wrap;
+  max-width: 250px;
+  justify-content: center;
 }
 
 .mote-slots .slot {
@@ -462,4 +465,41 @@ button:hover {
 
 .hidden {
   display: none !important;
+}
+
+/* ================================================== */
+/* BẢNG MÀU DỄ PHÂN BIỆT (COLORBLIND MODE - CONTRACT V1.2) */
+/* ================================================== */
+body.colorblind-mode #hud-timer.urgent {
+  color: #FFFFFF !important;
+}
+
+body.colorblind-mode #hud-timer.urgent::before {
+  content: "⚠ ";
+}
+
+body.colorblind-mode .warning-text {
+  color: #FFFFFF !important;
+}
+
+body.colorblind-mode .toast.warning {
+  color: #FFFFFF !important;
+  border-left-color: #00B3FF !important;
+}
+
+body.colorblind-mode .toast.warning::before {
+  content: "⚠ ";
+}
+
+body.colorblind-mode #interact-prompt {
+  border-color: #00B3FF;
+  box-shadow: 0 0 20px rgba(0, 179, 255, 0.45);
+}
+
+body.colorblind-mode #interact-prompt b {
+  color: #00B3FF;
+}
+
+body.colorblind-mode #flash-overlay {
+  background: rgba(255, 255, 255, 0.4);
 }

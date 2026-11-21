@@ -231,6 +231,275 @@ runTest("[Phase 2] Hiệu năng Headless 21.600 tick (≤ 30 giây)", () => {
   process.stdout.write(`(${durationSec.toFixed(2)}s) `);
 });
 
+// ======================================================
+// PHẦN MỚI: KIỂM THỬ TÍNH NĂNG GIAI ĐOẠN 3 (TICKET-03 - CONTRACT V1.2)
+// ======================================================
+
+// 14. Fuel Decay & Lantern Out Test
+runTest("[Phase 3] Tiêu hao nhiên liệu tự nhiên & Đèn tắt (Fuel decay & lantern_out)", () => {
+  const scenarioPath = path.join(TEMP_DIR, 'scenario_decay.json');
+  fs.writeFileSync(scenarioPath, JSON.stringify({
+    player: { pos: [0, 0, 10.0], carried: 0, flames: 3 },
+    random_motes: false,
+    random_shades: false,
+    motes: [],
+    shades: [],
+    lanterns: [
+      { id: "L1", pos: [0, 0, 0], lit: true, fuel: 0.1 } // 6 ticks of fuel (0.1 * 60 = 6)
+    ]
+  }));
+  const outPath = path.join(TEMP_DIR, 'out_decay.jsonl');
+
+  execSync(`node src/headless.js --seed 100 --night 1 --scenario "${scenarioPath}" --ticks 10 --out "${outPath}"`, { cwd: ROOT_DIR });
+  const lines = fs.readFileSync(outPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const outEvt = lines.find(l => l.type === 'event' && l.name === 'lantern_out');
+  if (!outEvt) throw new Error("Không phát sinh sự kiện lantern_out khi đèn hết nhiên liệu");
+  if (outEvt.data.lantern_id !== 'L1') throw new Error(`lantern_id kỳ vọng L1, nhận ${outEvt.data.lantern_id}`);
+
+  const finalSnapshot = lines.filter(l => l.type === 'snapshot').pop();
+  const l1Snap = finalSnapshot.lanterns.find(l => l.id === 'L1');
+  if (l1Snap.lit !== false) throw new Error("Đèn hết dầu nhưng vẫn sáng!");
+  if (l1Snap.fuel !== 0) throw new Error(`Nhiên liệu đèn tắt kỳ vọng 0, nhận ${l1Snap.fuel}`);
+  if (l1Snap.ever_lit !== true) throw new Error("Đèn tắt không ghi nhớ ever_lit = true!");
+});
+
+// 15. Refuel Lit Lantern Test
+runTest("[Phase 3] Châm dầu đèn đang sáng (Refuel lit lantern & candidate selection)", () => {
+  const scenarioPath = path.join(TEMP_DIR, 'scenario_refuel.json');
+  const inputsPath = path.join(TEMP_DIR, 'inputs_refuel.json');
+  fs.writeFileSync(scenarioPath, JSON.stringify({
+    player: { pos: [0, 0, 1.0], carried: 5, flames: 3 },
+    random_motes: false,
+    random_shades: false,
+    motes: [],
+    shades: [],
+    lanterns: [
+      { id: "L1", pos: [0, 0, 0], lit: true, fuel: 50.0 }, // 1.0m away, fuel 50 -> needs 5 motes to reach 100
+      { id: "L2", pos: [0, 0, 1.4], lit: true, fuel: 100.1 } // 0.4m away (closer), but fuel >= 100 (full) -> must be skipped!
+    ]
+  }));
+  fs.writeFileSync(inputsPath, JSON.stringify({
+    frames: [{ tick: 0, interact: true }]
+  }));
+  const outPath = path.join(TEMP_DIR, 'out_refuel.jsonl');
+
+  execSync(`node src/headless.js --seed 100 --night 1 --scenario "${scenarioPath}" --inputs "${inputsPath}" --ticks 5 --snapshot-every 5 --out "${outPath}"`, { cwd: ROOT_DIR });
+  const lines = fs.readFileSync(outPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const refuelEvt = lines.find(l => l.type === 'event' && l.name === 'refuel');
+  if (!refuelEvt) throw new Error("Không phát sinh sự kiện refuel khi châm dầu vào đèn đang sáng");
+  if (refuelEvt.data.lantern_id !== 'L1') throw new Error(`Chọn sai đèn: kỳ vọng L1, nhận ${refuelEvt.data.lantern_id}`);
+  if (refuelEvt.data.amount !== 5) throw new Error(`amount châm kỳ vọng 5, nhận ${refuelEvt.data.amount}`);
+  if (refuelEvt.data.fuel !== 100) throw new Error(`fuel sau khi châm kỳ vọng 100, nhận ${refuelEvt.data.fuel}`);
+
+  const snap = lines.filter(l => l.type === 'snapshot').pop();
+  if (snap.player.carried !== 0) throw new Error(`carried kỳ vọng 0 sau khi châm, nhận ${snap.player.carried}`);
+});
+
+// 16. Relighting Cost Test (ever_lit cost 5 vs initial 10)
+runTest("[Phase 3] Thắp lại đèn đã từng sáng (Relighting cost 5 motes vs 10)", () => {
+  const scenarioPath = path.join(TEMP_DIR, 'scenario_relight.json');
+  const inputsPath = path.join(TEMP_DIR, 'inputs_relight.json');
+  fs.writeFileSync(scenarioPath, JSON.stringify({
+    player: { pos: [0, 0, 1.0], carried: 6, flames: 3 },
+    random_motes: false,
+    random_shades: false,
+    motes: [],
+    shades: [],
+    lanterns: [
+      { id: "L1", pos: [0, 0, 0], lit: false, deposited: 0, ever_lit: true }
+    ]
+  }));
+  fs.writeFileSync(inputsPath, JSON.stringify({
+    frames: [{ tick: 0, interact: true }]
+  }));
+  const outPath = path.join(TEMP_DIR, 'out_relight.jsonl');
+
+  execSync(`node src/headless.js --seed 100 --night 1 --scenario "${scenarioPath}" --inputs "${inputsPath}" --ticks 5 --snapshot-every 5 --out "${outPath}"`, { cwd: ROOT_DIR });
+  const lines = fs.readFileSync(outPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const depEvt = lines.find(l => l.type === 'event' && l.name === 'deposit');
+  const litEvt = lines.find(l => l.type === 'event' && l.name === 'lantern_lit');
+
+  if (!depEvt) throw new Error("Không phát sinh sự kiện deposit khi thắp lại đèn");
+  if (depEvt.data.amount !== 5) throw new Error(`deposit amount khi thắp lại kỳ vọng 5 (thay vì 10), nhận ${depEvt.data.amount}`);
+  if (!litEvt) throw new Error("Không phát sinh sự kiện lantern_lit khi thắp lại đèn");
+  if (litEvt.data.relight !== true) throw new Error("lantern_lit phải có trường relight: true khi thắp lại!");
+
+  const snap = lines.filter(l => l.type === 'snapshot').pop();
+  if (snap.player.carried !== 1) throw new Error(`carried còn lại kỳ vọng 1 (6 - 5), nhận ${snap.player.carried}`);
+  const l1Snap = snap.lanterns.find(l => l.id === 'L1');
+  if (l1Snap.relit_count !== 1) throw new Error(`relit_count kỳ vọng 1, nhận ${l1Snap.relit_count}`);
+});
+
+// 17. Dynamic Capacity Test (10 + 2 * successful_lights, cap 20)
+runTest("[Phase 3] Sức chứa tăng dần (Dynamic capacity formula & mote pickup cap)", () => {
+  const scenarioPath = path.join(TEMP_DIR, 'scenario_capacity.json');
+  fs.writeFileSync(scenarioPath, JSON.stringify({
+    player: { pos: [0, 0, 0], carried: 10, flames: 3, successful_lights: 3 }, // capacity = 10 + 2*3 = 16
+    random_motes: false,
+    random_shades: false,
+    motes: [{ id: "M1", pos: [0, 0, 0.5] }] // Mote within pickup radius (0.5m)
+  }));
+  const outPath = path.join(TEMP_DIR, 'out_capacity.jsonl');
+
+  execSync(`node src/headless.js --seed 100 --night 1 --scenario "${scenarioPath}" --ticks 5 --snapshot-every 5 --out "${outPath}"`, { cwd: ROOT_DIR });
+  const lines = fs.readFileSync(outPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const snap = lines.filter(l => l.type === 'snapshot').pop();
+  if (snap.player.capacity !== 16) throw new Error(`capacity kỳ vọng 16 khi successful_lights = 3, nhận ${snap.player.capacity}`);
+  
+  const pickedEvt = lines.find(l => l.type === 'event' && l.name === 'mote_picked');
+  if (!pickedEvt) throw new Error("Không nhặt được đom đóm khi carried (10) < capacity (16)");
+  if (snap.player.carried !== 11) throw new Error(`carried kỳ vọng 11, nhận ${snap.player.carried}`);
+
+  // Test cap at 20
+  const scenarioCapPath = path.join(TEMP_DIR, 'scenario_capacity_cap.json');
+  fs.writeFileSync(scenarioCapPath, JSON.stringify({
+    player: { pos: [0, 0, 0], carried: 20, flames: 3, successful_lights: 8 }, // 10 + 2*8 = 26 -> capped at 20
+    random_motes: false,
+    random_shades: false,
+    motes: [{ id: "M1", pos: [0, 0, 0.5] }]
+  }));
+  const outCapPath = path.join(TEMP_DIR, 'out_capacity_cap.jsonl');
+  execSync(`node src/headless.js --seed 100 --night 1 --scenario "${scenarioCapPath}" --ticks 5 --snapshot-every 5 --out "${outCapPath}"`, { cwd: ROOT_DIR });
+  const linesCap = fs.readFileSync(outCapPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const snapCap = linesCap.filter(l => l.type === 'snapshot').pop();
+  if (snapCap.player.capacity !== 20) throw new Error(`capacity kỳ vọng trần 20, nhận ${snapCap.player.capacity}`);
+  if (snapCap.player.carried !== 20) throw new Error("Nhặt vượt trần sức chứa 20!");
+});
+
+// 18. Shade Drain & Pulse +15 Score Test
+runTest("[Phase 3] Bóng Mực hút dầu & Thưởng điểm Tỏa Sáng khi đang hút (+15)", () => {
+  // Part A: Shade draining emits fuel_drain event every 60 ticks
+  const drainScenarioPath = path.join(TEMP_DIR, 'scenario_fuel_drain_evt.json');
+  fs.writeFileSync(drainScenarioPath, JSON.stringify({
+    player: { pos: [30, 0, 30], carried: 0, flames: 3 }, // Far away (> 18m)
+    random_motes: false,
+    random_shades: false,
+    motes: [],
+    shades: [
+      { id: "S1", pos: [0, 0, 1.5], state: "drain", target_lantern_id: "L1" }
+    ],
+    lanterns: [
+      { id: "L1", pos: [0, 0, 0], lit: true, fuel: 25.0 }
+    ]
+  }));
+  const outDrainEvtPath = path.join(TEMP_DIR, 'out_drain_evt.jsonl');
+  execSync(`node src/headless.js --seed 100 --night 1 --scenario "${drainScenarioPath}" --ticks 65 --out "${outDrainEvtPath}"`, { cwd: ROOT_DIR });
+  const drainLines = fs.readFileSync(outDrainEvtPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const drainEvt = drainLines.find(l => l.type === 'event' && l.name === 'fuel_drain');
+  if (!drainEvt) throw new Error("Không phát sinh sự kiện fuel_drain sau 60 tick hút");
+  if (drainEvt.data.lantern_id !== 'L1' || drainEvt.data.shade_id !== 'S1') {
+    throw new Error(`Dữ liệu fuel_drain sai: ${JSON.stringify(drainEvt.data)}`);
+  }
+
+  // Part B: Pulse on draining shade awards +15 score
+  const scenarioPath = path.join(TEMP_DIR, 'scenario_drain_pulse.json');
+  const inputsPath = path.join(TEMP_DIR, 'inputs_drain_pulse.json');
+  fs.writeFileSync(scenarioPath, JSON.stringify({
+    player: { pos: [0, 0, 1.0], carried: 3, flames: 3 },
+    random_motes: false,
+    random_shades: false,
+    motes: [],
+    shades: [
+      { id: "S1", pos: [0, 0, 1.5], state: "drain", target_lantern_id: "L1" }
+    ],
+    lanterns: [
+      { id: "L1", pos: [0, 0, 0], lit: true, fuel: 25.0 }
+    ]
+  }));
+  // Fire pulse on tick 0
+  fs.writeFileSync(inputsPath, JSON.stringify({
+    frames: [{ tick: 0, pulse: true }]
+  }));
+  const outPath = path.join(TEMP_DIR, 'out_drain.jsonl');
+
+  execSync(`node src/headless.js --seed 100 --night 1 --scenario "${scenarioPath}" --inputs "${inputsPath}" --ticks 5 --snapshot-every 5 --out "${outPath}"`, { cwd: ROOT_DIR });
+  const lines = fs.readFileSync(outPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const pulseEvt = lines.find(l => l.type === 'event' && l.name === 'pulse');
+  if (!pulseEvt) throw new Error("Không phát sinh sự kiện pulse");
+  if (!pulseEvt.data.stunned_ids.includes('S1')) throw new Error("S1 không bị choáng bởi Tỏa Sáng");
+
+  const endSnap = lines.filter(l => l.type === 'snapshot').pop();
+  if (endSnap.score < 15) throw new Error(`Điểm khi choáng Bóng Mực đang drain kỳ vọng ≥ 15, nhận ${endSnap.score}`);
+});
+
+// 19. New Win & Loss Conditions (Dawn Survival vs Dawn Loss vs No Early Win)
+runTest("[Phase 3] Luật thắng mới - Bình minh (Dawn survival, no early win, dawn loss)", () => {
+  // Case A: Win at dawn when lit >= ceil(0.6 * total) -> 3/5 lit on Night 1
+  const winScenario = path.join(TEMP_DIR, 'scenario_win_dawn.json');
+  fs.writeFileSync(winScenario, JSON.stringify({
+    time_left_s: 0.05, // 3 ticks left
+    player: { pos: [0, 0, 0], carried: 0, flames: 2 },
+    random_motes: false,
+    random_shades: false,
+    motes: [],
+    shades: [],
+    lanterns: [
+      { id: "L1", pos: [10, 0, 0], lit: true, fuel: 80.0 },
+      { id: "L2", pos: [20, 0, 0], lit: true, fuel: 60.0 },
+      { id: "L3", pos: [30, 0, 0], lit: true, fuel: 40.0 },
+      { id: "L4", pos: [-10, 0, 0], lit: false, deposited: 0 },
+      { id: "L5", pos: [-20, 0, 0], lit: false, deposited: 0 }
+    ]
+  }));
+  const outWinPath = path.join(TEMP_DIR, 'out_win_dawn.jsonl');
+  execSync(`node src/headless.js --seed 100 --night 1 --scenario "${winScenario}" --ticks 5 --out "${outWinPath}"`, { cwd: ROOT_DIR });
+  const winLines = fs.readFileSync(outWinPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const winEvt = winLines.find(l => l.type === 'event' && l.name === 'game_over');
+  if (!winEvt) throw new Error("Không phát sinh sự kiện game_over tại bình minh");
+  if (winEvt.data.result !== 'won' || winEvt.data.reason !== 'dawn_survived') {
+    throw new Error(`Kết quả thắng kỳ vọng won / dawn_survived, nhận ${JSON.stringify(winEvt.data)}`);
+  }
+
+  // Case B: No early win when all 5/5 lanterns are lit
+  const allLitScenario = path.join(TEMP_DIR, 'scenario_all_lit_no_early_win.json');
+  fs.writeFileSync(allLitScenario, JSON.stringify({
+    time_left_s: 100.0,
+    player: { pos: [0, 0, 0], carried: 0, flames: 3 },
+    random_motes: false,
+    random_shades: false,
+    motes: [],
+    shades: [],
+    lanterns: [
+      { id: "L1", pos: [10, 0, 0], lit: true, fuel: 100 },
+      { id: "L2", pos: [20, 0, 0], lit: true, fuel: 100 },
+      { id: "L3", pos: [30, 0, 0], lit: true, fuel: 100 },
+      { id: "L4", pos: [-10, 0, 0], lit: true, fuel: 100 },
+      { id: "L5", pos: [-20, 0, 0], lit: true, fuel: 100 }
+    ]
+  }));
+  const outNoEarlyPath = path.join(TEMP_DIR, 'out_no_early_win.jsonl');
+  execSync(`node src/headless.js --seed 100 --night 1 --scenario "${allLitScenario}" --ticks 10 --out "${outNoEarlyPath}"`, { cwd: ROOT_DIR });
+  const noEarlyLines = fs.readFileSync(outNoEarlyPath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const earlyWinEvt = noEarlyLines.find(l => l.type === 'event' && l.name === 'game_over');
+  if (earlyWinEvt) throw new Error("Luật cũ vi phạm: game kết thúc sớm khi tất cả đèn sáng!");
+
+  // Case C: Loss at dawn when lit < ceil(0.6 * total) -> only 2/5 lit
+  const loseDawnScenario = path.join(TEMP_DIR, 'scenario_lose_dawn.json');
+  fs.writeFileSync(loseDawnScenario, JSON.stringify({
+    time_left_s: 0.05,
+    player: { pos: [0, 0, 0], carried: 0, flames: 3 },
+    random_motes: false,
+    random_shades: false,
+    motes: [],
+    shades: [],
+    lanterns: [
+      { id: "L1", pos: [10, 0, 0], lit: true, fuel: 80.0 },
+      { id: "L2", pos: [20, 0, 0], lit: true, fuel: 60.0 },
+      { id: "L3", pos: [30, 0, 0], lit: false, deposited: 0 },
+      { id: "L4", pos: [-10, 0, 0], lit: false, deposited: 0 },
+      { id: "L5", pos: [-20, 0, 0], lit: false, deposited: 0 }
+    ]
+  }));
+  const outLosePath = path.join(TEMP_DIR, 'out_lose_dawn.jsonl');
+  execSync(`node src/headless.js --seed 100 --night 1 --scenario "${loseDawnScenario}" --ticks 5 --out "${outLosePath}"`, { cwd: ROOT_DIR });
+  const loseLines = fs.readFileSync(outLosePath, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const loseEvt = loseLines.find(l => l.type === 'event' && l.name === 'game_over');
+  if (!loseEvt) throw new Error("Không phát sinh sự kiện game_over khi hết giờ với < 60% đèn");
+  if (loseEvt.data.result !== 'lost' || loseEvt.data.reason !== 'dawn') {
+    throw new Error(`Kết quả thua kỳ vọng lost / dawn, nhận ${JSON.stringify(loseEvt.data)}`);
+  }
+});
+
 console.log(`\n======================================================`);
 console.log(`🎉 KẾT QUẢ: Đạt ${passed}/${total} bài kiểm thử.`);
 console.log(`======================================================\n`);

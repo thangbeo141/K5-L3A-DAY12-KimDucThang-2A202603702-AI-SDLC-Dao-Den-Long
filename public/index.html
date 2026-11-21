@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Đảo Đèn Lồng (Lantern Island) - Phase 2</title>
+  <title>Đảo Đèn Lồng (Lantern Island) - Phase 3</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
@@ -61,7 +61,7 @@
     <div class="hud-bottom">
       <!-- Motes 10-slot Bag -->
       <div class="hud-bag-container">
-        <div class="bag-title">✨ Túi Đom Đóm (<span id="bag-count">0</span>/10)</div>
+        <div class="bag-title">✨ Túi Đom Đóm (<span id="bag-count">0</span>/<span id="bag-capacity">10</span>)</div>
         <div id="mote-slots" class="mote-slots">
           <div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
           <div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
@@ -152,6 +152,11 @@
         <input type="range" id="setting-sens" min="5" max="20" value="10" onchange="updateSettings()">
         <span id="sens-val">1.0x</span>
       </div>
+      <div class="setting-row">
+        <label>Bảng màu dễ phân biệt (Colorblind):</label>
+        <input type="checkbox" id="setting-colorblind" onchange="updateSettings()">
+        <span id="cb-val">Tắt</span>
+      </div>
       <button class="btn-primary" onclick="closeSettings()">Đóng</button>
     </div>
   </div>
@@ -183,8 +188,8 @@
     </div>
   </div>
 
-  <script src="src/engine.js?v=9"></script>
-  <script src="game3d.js?v=9"></script>
+  <script src="src/engine.js?v=11"></script>
+  <script src="game3d.js?v=11"></script>
 </body>
 
 </html>
