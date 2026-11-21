@@ -52,6 +52,15 @@
       <div class="pointer-text">Đèn gần nhất</div>
     </div>
 
+    <!-- Directional Edge Pointer for incoming Shades -->
+    <div id="shade-pointer" class="hidden">
+      <div class="pointer-arrow shade-arrow">▲</div>
+      <div class="pointer-text" id="shade-pointer-text">Bóng Mực xuất hiện!</div>
+    </div>
+
+    <!-- Visual Captions Banner -->
+    <div id="hud-caption" class="hud-caption hidden"></div>
+
     <!-- Interaction Prompt -->
     <div id="interact-prompt" class="hidden">
       💡 Bấm <b>[E]</b> — Nạp ánh sáng (0/10)
@@ -105,6 +114,7 @@
       <div class="menu-buttons">
         <button class="btn-primary" onclick="startGame(1)">Bắt Đầu Hành Trình (Đêm 1)</button>
         <button class="btn-secondary" onclick="showNightSelect()">Chọn Đêm Chơi (1, 2, 3)</button>
+        <button class="btn-secondary" onclick="openLeaderboard()">🏆 Bảng Xếp Hạng</button>
         <button class="btn-secondary" onclick="openSettings()">Cài Đặt</button>
       </div>
     </div>
@@ -157,7 +167,70 @@
         <input type="checkbox" id="setting-colorblind" onchange="updateSettings()">
         <span id="cb-val">Tắt</span>
       </div>
+      <div class="setting-row">
+        <label>Giảm chuyển động (Reduced Motion):</label>
+        <input type="checkbox" id="setting-reduced-motion" onchange="updateSettings()">
+        <span id="rm-val">Tắt</span>
+      </div>
+      <div class="setting-row">
+        <label>Cỡ chữ lớn (x1.25):</label>
+        <input type="checkbox" id="setting-large-text" onchange="updateSettings()">
+        <span id="lt-val">Tắt</span>
+      </div>
+      <div class="setting-row" style="margin-top: 10px;">
+        <button class="btn-secondary" style="width: 100%;" onclick="openKeybinds()">⌨️ Đổi Phím Điều Khiển</button>
+      </div>
       <button class="btn-primary" onclick="closeSettings()">Đóng</button>
+    </div>
+  </div>
+
+  <!-- Keybinding Dialog -->
+  <div id="keybinds-dialog" class="overlay-screen hidden">
+    <div class="menu-box keybinds-box">
+      <h2>⌨️ ĐỔI PHÍM ĐIỀU KHIỂN</h2>
+      <p id="keybind-tip" style="font-size: 13px; color: #FFE9B0; margin-bottom: 10px;">Nhấp vào nút để gán phím mới. Hệ thống sẽ phát hiện nếu trùng phím.</p>
+      <div id="keybind-conflict-alert" class="conflict-alert hidden">⚠️ Phím này đã được gán cho hành động khác!</div>
+      <div class="keybinds-list">
+        <div class="keybind-item"><span>Tiến (Lên):</span><button id="kb-moveUp" onclick="startRebinding('moveUp')">W</button></div>
+        <div class="keybind-item"><span>Lùi (Xuống):</span><button id="kb-moveDown" onclick="startRebinding('moveDown')">S</button></div>
+        <div class="keybind-item"><span>Sang Trái:</span><button id="kb-moveLeft" onclick="startRebinding('moveLeft')">A</button></div>
+        <div class="keybind-item"><span>Sang Phải:</span><button id="kb-moveRight" onclick="startRebinding('moveRight')">D</button></div>
+        <div class="keybind-item"><span>Nhảy (Jump):</span><button id="kb-jump" onclick="startRebinding('jump')">Space</button></div>
+        <div class="keybind-item"><span>Lướt (Dash):</span><button id="kb-dash" onclick="startRebinding('dash')">Shift</button></div>
+        <div class="keybind-item"><span>Tương tác (Nạp/Châm Đèn):</span><button id="kb-interact" onclick="startRebinding('interact')">E</button></div>
+        <div class="keybind-item"><span>Tỏa Sáng (Pulse):</span><button id="kb-pulse" onclick="startRebinding('pulse')">F</button></div>
+        <div class="keybind-item"><span>Tạm dừng (Pause):</span><button id="kb-pause" onclick="startRebinding('pause')">Escape</button></div>
+      </div>
+      <div class="menu-buttons" style="margin-top: 14px;">
+        <button class="btn-secondary" onclick="restoreDefaultKeybinds()">Khôi Phục Mặc Định</button>
+        <button class="btn-primary" onclick="closeKeybinds()">Xong</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaderboard Dialog -->
+  <div id="leaderboard-dialog" class="overlay-screen hidden">
+    <div class="menu-box leaderboard-box">
+      <h2>🏆 BẢNG XẾP HẠNG TOP 10</h2>
+      <div class="leaderboard-table-container">
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th>Hạng</th>
+              <th>Tên</th>
+              <th>Điểm</th>
+              <th>Đêm Thắng</th>
+              <th>Thời Gian</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-rows">
+            <tr><td colspan="5">Đang tải bảng xếp hạng...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="menu-buttons" style="margin-top: 16px;">
+        <button class="btn-primary" onclick="closeLeaderboard()">Đóng</button>
+      </div>
     </div>
   </div>
 
@@ -180,16 +253,24 @@
       <h1 id="overlay-title">🎉 Hoàn Thành Đêm!</h1>
       <p id="overlay-desc">Mây đã thắp sáng toàn bộ ngọn đèn!</p>
       <div id="overlay-score-details" class="score-details"></div>
+      <div id="save-score-section">
+        <p style="margin: 8px 0 6px; font-size: 14px; color: #FFE9B0;">Ghi danh bảng vàng (3-12 ký tự):</p>
+        <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 12px;">
+          <input type="text" id="player-name-input" maxlength="12" placeholder="Tên của bạn" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #F2C14E; background: rgba(14,20,48,0.9); color: #fff; font-size: 14px;">
+          <button class="btn-primary" onclick="submitPlayerScore()">Lưu Điểm</button>
+        </div>
+      </div>
       <div id="overlay-actions" class="menu-buttons">
         <button id="btn-next-night" class="btn-primary" onclick="proceedNextNight()">Tiếp Tục Đêm Tiếp</button>
         <button id="btn-restart" class="btn-secondary" onclick="restartCurrentNight()">Chơi Lại Đêm Này</button>
+        <button class="btn-secondary" onclick="openLeaderboard()">Xem Bảng Xếp Hạng</button>
         <button class="btn-secondary" onclick="returnToMainMenu()">Về Menu</button>
       </div>
     </div>
   </div>
 
-  <script src="src/engine.js?v=11"></script>
-  <script src="game3d.js?v=11"></script>
+  <script src="src/engine.js?v=12"></script>
+  <script src="game3d.js?v=12"></script>
 </body>
 
 </html>

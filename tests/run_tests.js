@@ -500,6 +500,43 @@ runTest("[Phase 3] Luật thắng mới - Bình minh (Dawn survival, no early wi
   }
 });
 
+// 20. Phase 4: Soak Test (Consecutive nights, 0 crashes, mem ratio <= 1.2)
+runTest("Phase 4: Soak test nhiều Đêm liên tiếp không crash, rò rỉ bộ nhớ <= 20%", () => {
+  const outSoakPath = path.join(TEMP_DIR, 'test_soak_run.json');
+  execSync(`node --expose-gc src/soak.js --seed 7 --nights 3 --out "${outSoakPath}"`, { cwd: ROOT_DIR });
+  if (!fs.existsSync(outSoakPath)) throw new Error("File test_soak_run.json không được tạo!");
+  const data = JSON.parse(fs.readFileSync(outSoakPath, 'utf8'));
+  if (data.crashes !== 0) throw new Error(`Số crash kỳ vọng 0, nhận ${data.crashes}`);
+  if (data.nights !== 3) throw new Error(`Số đêm kỳ vọng 3, nhận ${data.nights}`);
+  if (!Array.isArray(data.results) || data.results.length !== 3) throw new Error("Danh sách results không đủ 3 đêm");
+  const memRatio = data.mem_end_mb / data.mem_start_mb;
+  if (memRatio > 1.2) throw new Error(`Tỉ lệ tăng bộ nhớ vượt quá 20%: ${memRatio.toFixed(3)}`);
+});
+
+// 21. Phase 4: Benchmark Mode (Standard scene, FPS thresholds, load_ms <= 10000)
+runTest("Phase 4: Chế độ benchmark chuẩn hóa đạt avg_fps >= 60, load_ms <= 10000", () => {
+  const outBenchPath = path.join(TEMP_DIR, 'test_bench_run.json');
+  execSync(`node src/bench.js --seed 42 --duration 2 --out "${outBenchPath}"`, { cwd: ROOT_DIR });
+  if (!fs.existsSync(outBenchPath)) throw new Error("File test_bench_run.json không được tạo!");
+  const data = JSON.parse(fs.readFileSync(outBenchPath, 'utf8'));
+  if (data.contract_version !== '1.3') throw new Error(`contract_version kỳ vọng 1.3, nhận ${data.contract_version}`);
+  if (typeof data.avg_fps !== 'number' || data.avg_fps < 60) throw new Error(`avg_fps kỳ vọng >= 60, nhận ${data.avg_fps}`);
+  if (typeof data.p1_low_fps !== 'number' || data.p1_low_fps < 30) throw new Error(`p1_low_fps kỳ vọng >= 30, nhận ${data.p1_low_fps}`);
+  if (typeof data.load_ms !== 'number' || data.load_ms > 10000) throw new Error(`load_ms kỳ vọng <= 10000, nhận ${data.load_ms}`);
+  if (!data.frames || data.frames < 60) throw new Error(`frames quá thấp: ${data.frames}`);
+});
+
+// 22. Phase 4: Leaderboard CLI Export (--export-leaderboard)
+runTest("Phase 4: Xuất bảng xếp hạng qua CLI (--export-leaderboard out.json)", () => {
+  const outLbPath = path.join(TEMP_DIR, 'test_lb_export.json');
+  execSync(`node server.js --export-leaderboard "${outLbPath}"`, { cwd: ROOT_DIR });
+  if (!fs.existsSync(outLbPath)) throw new Error("File test_lb_export.json không được tạo!");
+  const raw = JSON.parse(fs.readFileSync(outLbPath, 'utf8'));
+  const list = Array.isArray(raw) ? raw : raw.entries;
+  if (!Array.isArray(list)) throw new Error("Leaderboard export không phải là mảng");
+  if (list.length > 10) throw new Error(`Leaderboard vượt quá 10 mục: ${list.length}`);
+});
+
 console.log(`\n======================================================`);
 console.log(`🎉 KẾT QUẢ: Đạt ${passed}/${total} bài kiểm thử.`);
 console.log(`======================================================\n`);

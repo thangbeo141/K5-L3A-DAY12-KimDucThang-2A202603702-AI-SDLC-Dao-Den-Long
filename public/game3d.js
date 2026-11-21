@@ -29,14 +29,120 @@ let lastTickTime = performance.now();
 const TICK_INTERVAL = 1000 / 60;
 let gameLoopRunning = false;
 let isColorblindMode = false;
+let isReducedMotion = false;
+let isLargeText = false;
 
-// Settings & LocalStorage
-function applyColorblindMode() {
-  if (isColorblindMode) {
-    document.body.classList.add('colorblind-mode');
-  } else {
-    document.body.classList.remove('colorblind-mode');
+// Key rebinding configuration
+const DEFAULT_KEYBINDS = {
+  moveUp: 'KeyW',
+  moveDown: 'KeyS',
+  moveLeft: 'KeyA',
+  moveRight: 'KeyD',
+  jump: 'Space',
+  dash: 'ShiftLeft',
+  interact: 'KeyE',
+  pulse: 'KeyF',
+  pause: 'Escape'
+};
+
+let userKeybinds = Object.assign({}, DEFAULT_KEYBINDS);
+let activeKeyCodes = {};
+let activeRebindAction = null;
+let lastShadeCount = 0;
+let hudCaptionTimer = null;
+
+function getKeyDisplayName(code) {
+  if (!code) return 'None';
+  if (code.startsWith('Key')) return code.substring(3);
+  if (code.startsWith('Digit')) return code.substring(5);
+  if (code === 'Space') return 'Space';
+  if (code === 'ShiftLeft' || code === 'ShiftRight') return 'Shift';
+  if (code === 'ControlLeft' || code === 'ControlRight') return 'Ctrl';
+  if (code === 'AltLeft' || code === 'AltRight') return 'Alt';
+  if (code === 'Escape') return 'Esc';
+  if (code.startsWith('Arrow')) return code.substring(5);
+  return code;
+}
+
+function loadSavedKeybinds() {
+  try {
+    const raw = localStorage.getItem('dao_den_long_keybinds');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      userKeybinds = Object.assign({}, DEFAULT_KEYBINDS, parsed);
+    }
+  } catch (e) {}
+  updateKeybindsUI();
+}
+
+function updateKeybindsUI() {
+  for (const act in userKeybinds) {
+    const btn = document.getElementById(`kb-${act}`);
+    if (btn) {
+      btn.innerText = getKeyDisplayName(userKeybinds[act]);
+      btn.classList.remove('rebinding');
+    }
   }
+  checkKeybindConflicts();
+}
+
+function checkKeybindConflicts() {
+  const counts = {};
+  let hasConflict = false;
+  for (const act in userKeybinds) {
+    const code = userKeybinds[act];
+    counts[code] = (counts[code] || 0) + 1;
+    if (counts[code] > 1) hasConflict = true;
+  }
+  const alertEl = document.getElementById('keybind-conflict-alert');
+  if (alertEl) {
+    if (hasConflict) alertEl.classList.remove('hidden');
+    else alertEl.classList.add('hidden');
+  }
+  return hasConflict;
+}
+
+function startRebinding(action) {
+  activeRebindAction = action;
+  for (const act in userKeybinds) {
+    const btn = document.getElementById(`kb-${act}`);
+    if (btn) btn.classList.remove('rebinding');
+  }
+  const btn = document.getElementById(`kb-${action}`);
+  if (btn) {
+    btn.innerText = '...Bấm phím...';
+    btn.classList.add('rebinding');
+  }
+}
+
+function restoreDefaultKeybinds() {
+  userKeybinds = Object.assign({}, DEFAULT_KEYBINDS);
+  try {
+    localStorage.setItem('dao_den_long_keybinds', JSON.stringify(userKeybinds));
+  } catch (e) {}
+  updateKeybindsUI();
+}
+
+function openKeybinds() {
+  document.getElementById('keybinds-dialog').classList.remove('hidden');
+  updateKeybindsUI();
+}
+
+function closeKeybinds() {
+  activeRebindAction = null;
+  document.getElementById('keybinds-dialog').classList.add('hidden');
+}
+
+// Accessibility & Settings
+function applyAccessibilitySettings() {
+  if (isColorblindMode) document.body.classList.add('colorblind-mode');
+  else document.body.classList.remove('colorblind-mode');
+
+  if (isReducedMotion) document.body.classList.add('reduced-motion');
+  else document.body.classList.remove('reduced-motion');
+
+  if (isLargeText) document.body.classList.add('large-text');
+  else document.body.classList.remove('large-text');
 }
 
 function loadSavedSettings() {
@@ -47,27 +153,45 @@ function loadSavedSettings() {
     if (s !== null) mouseSensitivity = parseFloat(s);
     const cb = localStorage.getItem('dao_den_long_colorblind');
     if (cb !== null) isColorblindMode = (cb === 'true');
+    const rm = localStorage.getItem('dao_den_long_reduced_motion');
+    if (rm !== null) isReducedMotion = (rm === 'true');
+    const lt = localStorage.getItem('dao_den_long_large_text');
+    if (lt !== null) isLargeText = (lt === 'true');
   } catch (e) {}
 
   const volEl = document.getElementById('setting-volume');
   const sensEl = document.getElementById('setting-sens');
   const cbEl = document.getElementById('setting-colorblind');
+  const rmEl = document.getElementById('setting-reduced-motion');
+  const ltEl = document.getElementById('setting-large-text');
   if (volEl) volEl.value = Math.round(soundVolume * 100);
   if (sensEl) sensEl.value = Math.round(mouseSensitivity * 10);
   if (cbEl) cbEl.checked = isColorblindMode;
+  if (rmEl) rmEl.checked = isReducedMotion;
+  if (ltEl) ltEl.checked = isLargeText;
+
   const volVal = document.getElementById('volume-val');
   const sensVal = document.getElementById('sens-val');
   const cbVal = document.getElementById('cb-val');
+  const rmVal = document.getElementById('rm-val');
+  const ltVal = document.getElementById('lt-val');
   if (volVal) volVal.innerText = `${Math.round(soundVolume * 100)}%`;
   if (sensVal) sensVal.innerText = `${mouseSensitivity.toFixed(1)}x`;
   if (cbVal) cbVal.innerText = isColorblindMode ? 'Bật' : 'Tắt';
-  applyColorblindMode();
+  if (rmVal) rmVal.innerText = isReducedMotion ? 'Bật' : 'Tắt';
+  if (ltVal) ltVal.innerText = isLargeText ? 'Bật' : 'Tắt';
+
+  applyAccessibilitySettings();
+  loadSavedKeybinds();
 }
 
 function updateSettings() {
   const volEl = document.getElementById('setting-volume');
   const sensEl = document.getElementById('setting-sens');
   const cbEl = document.getElementById('setting-colorblind');
+  const rmEl = document.getElementById('setting-reduced-motion');
+  const ltEl = document.getElementById('setting-large-text');
+
   if (volEl) {
     soundVolume = parseInt(volEl.value, 10) / 100;
     document.getElementById('volume-val').innerText = `${volEl.value}%`;
@@ -80,11 +204,20 @@ function updateSettings() {
   }
   if (cbEl) {
     isColorblindMode = cbEl.checked;
-    const cbVal = document.getElementById('cb-val');
-    if (cbVal) cbVal.innerText = isColorblindMode ? 'Bật' : 'Tắt';
+    document.getElementById('cb-val').innerText = isColorblindMode ? 'Bật' : 'Tắt';
     try { localStorage.setItem('dao_den_long_colorblind', isColorblindMode.toString()); } catch (e) {}
-    applyColorblindMode();
   }
+  if (rmEl) {
+    isReducedMotion = rmEl.checked;
+    document.getElementById('rm-val').innerText = isReducedMotion ? 'Bật' : 'Tắt';
+    try { localStorage.setItem('dao_den_long_reduced_motion', isReducedMotion.toString()); } catch (e) {}
+  }
+  if (ltEl) {
+    isLargeText = ltEl.checked;
+    document.getElementById('lt-val').innerText = isLargeText ? 'Bật' : 'Tắt';
+    try { localStorage.setItem('dao_den_long_large_text', isLargeText.toString()); } catch (e) {}
+  }
+  applyAccessibilitySettings();
 }
 
 function openSettings() {
@@ -101,6 +234,130 @@ function showNightSelect() {
 
 function closeNightSelect() {
   document.getElementById('night-select-dialog').classList.add('hidden');
+}
+
+// Visual Captions
+function showVisualCaption(text, durationMs = 2500) {
+  const cap = document.getElementById('hud-caption');
+  if (!cap) return;
+  cap.innerText = text;
+  cap.classList.remove('hidden');
+  if (hudCaptionTimer) clearTimeout(hudCaptionTimer);
+  if (durationMs > 0) {
+    hudCaptionTimer = setTimeout(() => {
+      cap.classList.add('hidden');
+    }, durationMs);
+  }
+}
+
+// Leaderboard Screen & API
+function openLeaderboard() {
+  document.getElementById('leaderboard-dialog').classList.remove('hidden');
+  fetchLeaderboard();
+}
+
+function closeLeaderboard() {
+  document.getElementById('leaderboard-dialog').classList.add('hidden');
+}
+
+function fetchLeaderboard() {
+  const rowsEl = document.getElementById('leaderboard-rows');
+  if (rowsEl) rowsEl.innerHTML = '<tr><td colspan="5">Đang tải bảng xếp hạng...</td></tr>';
+
+  fetch('/api/leaderboard')
+    .then(r => r.json())
+    .then(data => {
+      renderLeaderboard(data);
+    })
+    .catch(() => {
+      try {
+        const raw = localStorage.getItem('dao_den_long_leaderboard');
+        if (raw) {
+          renderLeaderboard(JSON.parse(raw));
+          return;
+        }
+      } catch (e) {}
+      if (rowsEl) rowsEl.innerHTML = '<tr><td colspan="5">Chưa có bản ghi điểm nào.</td></tr>';
+    });
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+function renderLeaderboard(list) {
+  const rowsEl = document.getElementById('leaderboard-rows');
+  if (!rowsEl) return;
+  if (!Array.isArray(list) || list.length === 0) {
+    rowsEl.innerHTML = '<tr><td colspan="5">Chưa có ai lưu điểm. Hãy là người đầu tiên!</td></tr>';
+    return;
+  }
+  let html = '';
+  list.forEach((entry, idx) => {
+    const rankEmoji = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+    const dateStr = entry.achieved_at ? new Date(entry.achieved_at).toLocaleDateString('vi-VN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
+    html += `<tr>
+      <td>${rankEmoji}</td>
+      <td><b>${escapeHtml(entry.name || 'Anonymous')}</b></td>
+      <td style="color: #F2C14E; font-weight: bold;">${entry.score || 0}</td>
+      <td>${entry.nights_won || 0}/3</td>
+      <td style="font-size: 12px; color: #8A94A8;">${dateStr}</td>
+    </tr>`;
+  });
+  rowsEl.innerHTML = html;
+}
+
+function submitPlayerScore() {
+  const nameInput = document.getElementById('player-name-input');
+  if (!nameInput) return;
+  const name = nameInput.value.trim();
+
+  // Validate: 3-12 characters [A-Za-z0-9_]
+  const nameRegex = /^[A-Za-z0-9_]{3,12}$/;
+  if (!nameRegex.test(name)) {
+    alert("⚠️ Tên phải từ 3 đến 12 ký tự và chỉ chứa chữ cái, số, dấu gạch dưới [A-Za-z0-9_]!");
+    return;
+  }
+
+  const finalScore = totalGameScore + (engine ? engine.score : 0);
+  let nightsWon = 0;
+  if (engine) {
+    if (engine.state === 'won') {
+      nightsWon = currentNight;
+    } else {
+      nightsWon = Math.max(0, currentNight - 1);
+    }
+  }
+
+  const payload = {
+    name,
+    score: finalScore,
+    nights_won: nightsWon,
+    achieved_at: new Date().toISOString(),
+    seed: engine ? engine.seed : 42
+  };
+
+  fetch('/api/leaderboard', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+    .then(r => r.json())
+    .then(data => {
+      try {
+        if (data.leaderboard) {
+          localStorage.setItem('dao_den_long_leaderboard', JSON.stringify(data.leaderboard));
+        }
+      } catch (e) {}
+      alert("🎉 Đã ghi danh vào Bảng Xếp Hạng thành công!");
+      nameInput.disabled = true;
+      openLeaderboard();
+    })
+    .catch(err => {
+      console.error("Leaderboard submit error:", err);
+      alert("Đã lưu điểm ngoại tuyến thành công!");
+      openLeaderboard();
+    });
 }
 
 // ==========================================
@@ -871,30 +1128,43 @@ function syncEntities() {
 // Controls
 function setupControls() {
   window.addEventListener('keydown', e => {
+    if (activeRebindAction) {
+      e.preventDefault();
+      userKeybinds[activeRebindAction] = e.code;
+      try {
+        localStorage.setItem('dao_den_long_keybinds', JSON.stringify(userKeybinds));
+      } catch (err) {}
+      activeRebindAction = null;
+      updateKeybindsUI();
+      return;
+    }
+
+    activeKeyCodes[e.code] = true;
     const k = e.key.toLowerCase();
     keys[k] = true;
 
-    if (e.key === ' ') {
+    if (e.code === userKeybinds.jump || e.key === ' ') {
       keys['space'] = true;
       e.preventDefault();
       AudioSFX.jump();
     }
-    if (e.key === 'Shift' || k === 'c') {
+    if (e.code === userKeybinds.dash || e.key === 'Shift' || k === 'c') {
       keys['shift'] = true;
       AudioSFX.dash();
     }
-    if (e.key === 'Escape' || k === 'p') {
+    if (e.code === userKeybinds.pause || e.key === 'Escape' || k === 'p') {
       togglePause();
     }
-    if (k === 'f' || k === 'q') {
+    if (e.code === userKeybinds.pulse || k === 'f' || k === 'q') {
       AudioSFX.pulse();
     }
-    if (k === 'e') {
+    if (e.code === userKeybinds.interact || k === 'e') {
       AudioSFX.deposit();
     }
   });
 
   window.addEventListener('keyup', e => {
+    delete activeKeyCodes[e.code];
     const k = e.key.toLowerCase();
     keys[k] = false;
     if (e.key === ' ') keys['space'] = false;
@@ -922,22 +1192,36 @@ function setupControls() {
   });
 }
 
+function isActionPressed(action) {
+  const code = userKeybinds[action];
+  if (code && activeKeyCodes[code]) return true;
+  if (action === 'moveUp' && (keys['w'] || keys['arrowup'])) return true;
+  if (action === 'moveDown' && (keys['s'] || keys['arrowdown'])) return true;
+  if (action === 'moveLeft' && (keys['a'] || keys['arrowleft'])) return true;
+  if (action === 'moveRight' && (keys['d'] || keys['arrowright'])) return true;
+  if (action === 'jump' && (keys[' '] || keys['space'])) return true;
+  if (action === 'dash' && (keys['shift'] || keys['c'])) return true;
+  if (action === 'interact' && keys['e']) return true;
+  if (action === 'pulse' && (keys['f'] || keys['q'])) return true;
+  return false;
+}
+
 function updateInput() {
   let mx = 0, mz = 0;
-  if (keys['w'] || keys['arrowup']) mz += 1;
-  if (keys['s'] || keys['arrowdown']) mz -= 1;
-  // User mapping: A = Left, D = Right
-  if (keys['a'] || keys['arrowleft']) mx += 1;
-  if (keys['d'] || keys['arrowright']) mx -= 1;
+  if (isActionPressed('moveUp')) mz += 1;
+  if (isActionPressed('moveDown')) mz -= 1;
+  // User mapping: Left = +X, Right = -X
+  if (isActionPressed('moveLeft')) mx += 1;
+  if (isActionPressed('moveRight')) mx -= 1;
 
   const deg = (camYaw * 180 / Math.PI) % 360;
   engine.setInput({
     move: [mx, mz],
     cam_yaw_deg: deg,
-    jump: Boolean(keys[' '] || keys['space']),
-    dash: Boolean(keys['shift'] || keys['c']),
-    interact: Boolean(keys['e']),
-    pulse: Boolean(keys['f'] || keys['q']),
+    jump: isActionPressed('jump'),
+    dash: isActionPressed('dash'),
+    interact: isActionPressed('interact'),
+    pulse: isActionPressed('pulse'),
     pause: false
   });
 }
@@ -955,6 +1239,7 @@ function showToast(msg) {
 }
 
 function triggerFlashDamage() {
+  if (isReducedMotion) return; // Reduced motion disables screen flash
   const flash = document.getElementById('flash-overlay');
   if (!flash) return;
   flash.classList.add('active');
@@ -1137,6 +1422,61 @@ function updateHUD() {
     pointer.classList.add('hidden');
   }
 
+  // Accessibility Visual Indicators & Captions
+  // 1. Shade spawn indicator & Edge Pointer to closest Shade
+  if (engine.shades.length > lastShadeCount) {
+    showVisualCaption('⚠️ Bóng Mực xuất hiện!', 2500);
+  }
+  lastShadeCount = engine.shades.length;
+
+  const shadePointer = document.getElementById('shade-pointer');
+  if (shadePointer && engine.shades.length > 0) {
+    let closestShade = null;
+    let minShadeDist = Infinity;
+    for (const s of engine.shades) {
+      const d = Math.hypot(engine.player.pos[0] - s.pos[0], engine.player.pos[2] - s.pos[2]);
+      if (d < minShadeDist) {
+        minShadeDist = d;
+        closestShade = s;
+      }
+    }
+    if (closestShade && minShadeDist > 8) {
+      shadePointer.classList.remove('hidden');
+      const dx = closestShade.pos[0] - engine.player.pos[0];
+      const dz = closestShade.pos[2] - engine.player.pos[2];
+      const worldAngle = Math.atan2(dx, dz);
+      const arrowAngle = (worldAngle - camYaw) * (180 / Math.PI);
+      shadePointer.querySelector('.shade-arrow').style.transform = `rotate(${arrowAngle}deg)`;
+      const pointerText = document.getElementById('shade-pointer-text');
+      if (pointerText) pointerText.innerText = `Bóng Mực (${Math.round(minShadeDist)}m)`;
+    } else {
+      shadePointer.classList.add('hidden');
+    }
+  } else if (shadePointer) {
+    shadePointer.classList.add('hidden');
+  }
+
+  // 2. Wind warning in Night 3 (2s before gust)
+  if (engine.wind && engine.wind.enabled) {
+    const cycleTick = engine.sim_tick % 1800;
+    if (cycleTick >= 1500 && cycleTick < 1620) {
+      showVisualCaption('🍃 CẢNH BÁO: Gió lớn sắp thổi trong 2s!', 1200);
+    } else if (cycleTick >= 1620 && cycleTick < 1920) {
+      showVisualCaption('💨 GIÓ MẠNH ĐANG THỔI!', 800);
+    }
+  }
+
+  // 3. Countdown caption for last 10 seconds
+  if (totalSec <= 10 && totalSec > 0) {
+    showVisualCaption(`⏳ SẮP HẾT GIỜ: ${totalSec}s! Mau bảo vệ các ngọn đèn!`, 1000);
+  }
+
+  // 4. Low fuel warning (<30%)
+  const lowFuelLantern = engine.lanterns.find(l => l.lit && l.fuel < 30);
+  if (lowFuelLantern && totalSec > 10) {
+    showVisualCaption(`🏮 CẢNH BÁO: Đèn ${lowFuelLantern.id} sắp cạn dầu (<30%)! Hãy châm thêm đom đóm!`, 1200);
+  }
+
   // Win / Loss Overlay
   const overlay = document.getElementById('message-overlay');
   const title = document.getElementById('overlay-title');
@@ -1199,6 +1539,9 @@ function startGame(night = 1) {
 function startCurrentNight() {
   document.getElementById('night-intro').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
+  lastShadeCount = 0;
+  const nameInput = document.getElementById('player-name-input');
+  if (nameInput) nameInput.disabled = false;
 
   // Clean up all entity meshes from previous night
   if (playerMesh) {
@@ -1233,6 +1576,9 @@ function startCurrentNight() {
 function restartCurrentNight() {
   document.getElementById('pause-menu').classList.add('hidden');
   document.getElementById('message-overlay').classList.add('hidden');
+  lastShadeCount = 0;
+  const nameInput = document.getElementById('player-name-input');
+  if (nameInput) nameInput.disabled = false;
 
   for (const id in moteMeshes) scene.remove(moteMeshes[id]);
   moteMeshes = {};

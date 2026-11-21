@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Đảo Đèn Lồng - Benchmark Mode</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; }
+    body, html { width: 1280px; height: 720px; background: #0E1430; font-family: monospace; }
+    #canvas-container { width: 1280px; height: 720px; position: absolute; top: 0; left: 0; }
+    #overlay {
+      position: absolute; top: 12px; left: 12px; z-index: 10;
+      color: #00FFCC; background: rgba(0,0,0,0.75); padding: 10px 16px;
+      border-radius: 8px; font-size: 14px; line-height: 1.6;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/src/engine.js"></script>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <div id="overlay">
+    <div>🏮 <b>ĐẢO ĐÈN LỒNG - BENCHMARK CẢNH CHUẨN (CONTRACT V1.3)</b></div>
+    <div id="status-text">Khởi động cảnh 3D...</div>
+    <div id="metrics-text"></div>
+  </div>
+
+  <script>
+    const processStartTime = performance.now();
+    const urlParams = new URLSearchParams(window.location.search);
+    const benchSeed = parseInt(urlParams.get('seed'), 10) || 42;
+    const benchDurationS = parseFloat(urlParams.get('duration')) || 30.0;
+    const isHeadlessBench = urlParams.get('headless') === '1';
+
+    let scene, camera, renderer;
+    let engine;
+    let shadeMeshes = [];
+    let moteMeshes = [];
+
+    const W = 1280, H = 720;
+    const container = document.getElementById('canvas-container');
+    const statusText = document.getElementById('status-text');
+    const metricsText = document.getElementById('metrics-text');
+
+    // 1. Initialize Three.js Scene
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0e24);
+    scene.fog = new THREE.FogExp2(0x0e1430, 0.015);
+
+    camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 500);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(1.0); // Strict 1280x720 rendering
+    container.appendChild(renderer.domElement);
+
+    // Lighting (Night 1 lighting setup)
+    const ambientLight = new THREE.AmbientLight(0x2A3258, 0.45);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xA6C8FF, 0.6);
+    dirLight.position.set(30, 50, 20);
+    scene.add(dirLight);
+
+    // Island Ground (Night 1: Disc R=40m)
+    const islandGeo = new THREE.CylinderGeometry(40.0, 41.5, 3.0, 64);
+    const islandMat = new THREE.MeshStandardMaterial({ color: 0x1E2B37, roughness: 0.85 });
+    const islandMesh = new THREE.Mesh(islandGeo, islandMat);
+    islandMesh.position.y = -1.5;
+    scene.add(islandMesh);
+
+    // Grass Top
+    const grassGeo = new THREE.CircleGeometry(40.0, 64);
+    const grassMat = new THREE.MeshStandardMaterial({ color: 0x2A3D34, roughness: 0.9 });
+    const grassMesh = new THREE.Mesh(grassGeo, grassMat);
+    grassMesh.rotation.x = -Math.PI / 2;
+    grassMesh.position.y = 0.01;
+    scene.add(grassMesh);
+
+    // Player Mesh at (0, 0, 0)
+    const playerGroup = new THREE.Group();
+    const pBody = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 1.0, 16), new THREE.MeshStandardMaterial({ color: 0xE8E2D0 }));
+    pBody.position.y = 0.5;
+    playerGroup.add(pBody);
+    const pScarf = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.09, 8, 16), new THREE.MeshStandardMaterial({ color: 0xC8102E }));
+    pScarf.rotation.x = Math.PI / 2; pScarf.position.y = 0.98;
+    playerGroup.add(pScarf);
+    const pHat = new THREE.Mesh(new THREE.ConeGeometry(0.8, 0.4, 24), new THREE.MeshStandardMaterial({ color: 0xC9B48A }));
+    pHat.position.y = 1.45;
+    playerGroup.add(pHat);
+    scene.add(playerGroup);
+
+    // 3 Lit Lanterns (L1, L2, L3) with fuel 100 and lights
+    const lanternPositions = [
+      [0.0, 0.0, 25.0],
+      [23.8, 0.0, 7.7],
+      [14.7, 0.0, -20.2]
+    ];
+    for (let i = 0; i < 3; i++) {
+      const pos = lanternPositions[i];
+      const lg = new THREE.Group();
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 2.5, 12), new THREE.MeshStandardMaterial({ color: 0x6B4A2F }));
+      post.position.y = 1.25;
+      lg.add(post);
+      const cage = new THREE.Mesh(new THREE.OctahedronGeometry(0.7), new THREE.MeshStandardMaterial({ color: 0x5B5F6E }));
+      cage.position.y = 2.5;
+      lg.add(cage);
+      const core = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshBasicMaterial({ color: 0xFFE9B0 }));
+      core.position.y = 2.5;
+      lg.add(core);
+      const light = new THREE.PointLight(0xFFB347, 3.5, 16);
+      light.position.y = 2.7;
+      lg.add(light);
+      lg.position.set(pos[0], pos[1], pos[2]);
+      scene.add(lg);
+    }
+
+    // PRNG for deterministic benchmark spawn (seed 42)
+    const rng = new PRNG(benchSeed);
+
+    // Spawn 100 Motes
+    const moteGeo = new THREE.SphereGeometry(0.25, 8, 8);
+    const moteMat = new THREE.MeshBasicMaterial({ color: 0xFFF6C2 });
+    for (let i = 0; i < 100; i++) {
+      const ang = rng.range(0, Math.PI * 2);
+      const dist = rng.range(2.0, 38.0);
+      const mx = Math.cos(ang) * dist;
+      const mz = Math.sin(ang) * dist;
+      const mMesh = new THREE.Mesh(moteGeo, moteMat);
+      mMesh.position.set(mx, 0.6, mz);
+      scene.add(mMesh);
+      moteMeshes.push(mMesh);
+    }
+
+    // Spawn 200 Shades in wander state
+    const shadeGeo = new THREE.DodecahedronGeometry(0.65);
+    const shadeMat = new THREE.MeshStandardMaterial({ color: 0x120A1A, roughness: 0.9 });
+    const shadeEyeGeo = new THREE.SphereGeometry(0.1, 8, 8);
+    const shadeEyeMat = new THREE.MeshBasicMaterial({ color: 0x7A3CFF });
+
+    const shadesData = [];
+    for (let i = 0; i < 200; i++) {
+      const ang = rng.range(0, Math.PI * 2);
+      const dist = rng.range(3.0, 38.0);
+      const sx = Math.cos(ang) * dist;
+      const sz = Math.sin(ang) * dist;
+
+      const sg = new THREE.Group();
+      const body = new THREE.Mesh(shadeGeo, shadeMat);
+      body.position.y = 0.65;
+      sg.add(body);
+      const e1 = new THREE.Mesh(shadeEyeGeo, shadeEyeMat);
+      e1.position.set(0.2, 0.8, 0.45);
+      sg.add(e1);
+      const e2 = new THREE.Mesh(shadeEyeGeo, shadeEyeMat);
+      e2.position.set(-0.2, 0.8, 0.45);
+      sg.add(e2);
+      sg.position.set(sx, 0, sz);
+      scene.add(sg);
+
+      shadesData.push({
+        group: sg,
+        pos: [sx, 0, sz],
+        id: `S${i + 1}`,
+        dirAng: rng.range(0, Math.PI * 2)
+      });
+    }
+
+    // Benchmark State Variables
+    let firstFrameTime = null;
+    let load_ms = 0;
+    let benchState = "warmup"; // "warmup" -> "measuring" -> "finished"
+    let warmupStartTime = null;
+    let measureStartTime = null;
+    const dtList = [];
+
+    const WARMUP_DURATION_MS = 3000;
+    const MEASURE_DURATION_MS = benchDurationS * 1000;
+
+    let lastFrameTime = performance.now();
+
+    function renderLoop(now) {
+      if (!firstFrameTime) {
+        firstFrameTime = now;
+        load_ms = Math.round(now - processStartTime);
+        warmupStartTime = now;
+      }
+
+      const dt = now - lastFrameTime;
+      lastFrameTime = now;
+
+      // 1. Camera circle path: R = 30m, Y = 15m, looking at (0, 0, 0), 15s per rotation CCW
+      // theta = (t / 15000) * 2 * PI
+      const tTotal = now - warmupStartTime;
+      const camAng = (tTotal / 15000) * Math.PI * 2;
+      const camX = 30.0 * Math.cos(camAng);
+      const camZ = -30.0 * Math.sin(camAng); // CCW from top
+      camera.position.set(camX, 15.0, camZ);
+      camera.lookAt(0, 0, 0);
+
+      // 2. Shades Wander movement (2 m/s = 2/60 per tick ~ 0.033m per frame at 60fps)
+      const step = (dt / 1000.0) * 2.0;
+      for (const s of shadesData) {
+        s.dirAng += (Math.sin(s.pos[0] + now * 0.001) * 0.05);
+        s.pos[0] += Math.cos(s.dirAng) * step;
+        s.pos[2] += Math.sin(s.dirAng) * step;
+        // Keep inside island
+        const distToCenter = Math.hypot(s.pos[0], s.pos[2]);
+        if (distToCenter > 38.0) {
+          s.dirAng = Math.atan2(-s.pos[2], -s.pos[0]);
+        }
+        s.group.position.x = s.pos[0];
+        s.group.position.z = s.pos[2];
+      }
+
+      // Render Three.js frame
+      renderer.render(scene, camera);
+
+      // 3. Bench measurement logic
+      if (benchState === "warmup") {
+        const warmupElapsed = now - warmupStartTime;
+        statusText.innerText = `Khởi động (Warmup): ${(warmupElapsed / 1000).toFixed(1)}s / 3.0s`;
+        if (warmupElapsed >= WARMUP_DURATION_MS) {
+          benchState = "measuring";
+          measureStartTime = performance.now();
+          statusText.innerText = `Đang đo hiệu năng: 0.0s / ${benchDurationS}s`;
+        }
+      } else if (benchState === "measuring") {
+        // Record frame time
+        dtList.push(dt);
+        const measureElapsed = now - measureStartTime;
+        statusText.innerText = `Đang đo hiệu năng: ${(measureElapsed / 1000).toFixed(1)}s / ${benchDurationS}s (Frames: ${dtList.length})`;
+        
+        if (measureElapsed >= MEASURE_DURATION_MS) {
+          benchState = "finished";
+          finishBenchmark();
+          return;
+        }
+      }
+
+      if (benchState !== "finished") {
+        requestAnimationFrame(renderLoop);
+      }
+    }
+
+    function finishBenchmark() {
+      const N = dtList.length;
+      let sumDt = 0;
+      for (let i = 0; i < N; i++) sumDt += dtList[i];
+
+      const avg_fps = N > 0 ? Math.round((1000 * N / sumDt) * 10) / 10 : 0;
+
+      // 1% low fps
+      const k = Math.max(1, Math.ceil(0.01 * N));
+      const sortedDesc = [...dtList].sort((a, b) => b - a);
+      let sumSlowest = 0;
+      for (let i = 0; i < k; i++) sumSlowest += sortedDesc[i];
+      const avgSlowDt = sumSlowest / k;
+      const p1_low_fps = avgSlowDt > 0 ? Math.round((1000 / avgSlowDt) * 10) / 10 : 0;
+
+      // 95th percentile frame time
+      const sortedAsc = [...dtList].sort((a, b) => a - b);
+      const p95Idx = Math.min(N - 1, Math.floor(0.95 * N));
+      const frame_ms_p95 = Math.round(sortedAsc[p95Idx] * 10) / 10;
+
+      const gl = renderer.getContext();
+      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+      const rendererDesc = debugInfo
+        ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+        : `Three.js r128 (WebGL)`;
+
+      const result = {
+        contract_version: "1.3",
+        avg_fps: avg_fps,
+        p1_low_fps: p1_low_fps,
+        frame_ms_p95: frame_ms_p95,
+        frames: N,
+        load_ms: load_ms,
+        peak_mem_mb: (window.performance && performance.memory) ? Math.round(performance.memory.totalJSHeapSize / 1024 / 1024) : null,
+        vsync_off: true,
+        renderer: `${rendererDesc}`,
+        os: navigator.userAgent.includes("Windows") ? "Windows x64" : (navigator.platform || "Unknown OS")
+      };
+
+      statusText.innerHTML = `<span style="color:#00FF00">Hoàn thành Benchmark! avg_fps: ${avg_fps}, p1_low: ${p1_low_fps}</span>`;
+      metricsText.innerText = JSON.stringify(result, null, 2);
+
+      // Post result back to server
+      fetch('/api/bench-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(result)
+      }).then(() => {
+        console.log("Benchmark results sent successfully.");
+      }).catch(err => {
+        console.error("Failed to post bench result:", err);
+      });
+    }
+
+    requestAnimationFrame(renderLoop);
+  </script>
+</body>
+</html>

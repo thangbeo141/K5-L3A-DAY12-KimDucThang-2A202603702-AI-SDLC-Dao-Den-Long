@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [v1.0.0 / Phase 4 - Contract v1.3] - 2026-11-21
+
+### Added
+- **Chế độ Benchmark chuẩn hóa (`bench_cmd`)**:
+  - Hỗ trợ dòng lệnh `<bench_cmd> --seed 42 --duration 30 --out bench.json`.
+  - Cảnh chuẩn Đêm 1 với 200 Bóng Mực wander, 100 đom đóm, 3 đèn sáng 100 fuel, camera bay quỹ đạo tròn bán kính 30m, cao 15m.
+  - Khởi động 3s warmup, đo đạc xuất file `bench.json` chuẩn hóa cam kết `avg_fps >= 60`, `p1_low_fps >= 30`, `load_ms <= 10000`.
+- **Chế độ Soak Test chạy bền (`soak_cmd`)**:
+  - Hỗ trợ dòng lệnh `<soak_cmd> --seed 7 --nights 10 --out soak.json`.
+  - Chạy headless 10 Đêm liên tiếp trong cùng một tiến trình (luân phiên Đêm 1 -> 2 -> 3 -> 1...), điều khiển bằng bộ phát ngẫu nhiên có seed riêng.
+  - Kiểm tra rò rỉ bộ nhớ (`mem_end_mb <= 1.2 * mem_start_mb`) và 0 crash.
+- **Bảng Xếp Hạng (Leaderboard)**:
+  - Giao diện xem Top 10 tích hợp từ menu chính và màn hình kết thúc ván chơi.
+  - Kiểm tra tính hợp lệ của tên người chơi (3–12 ký tự `[A-Za-z0-9_]`).
+  - Sắp xếp ưu tiên: `score` DESC, `achieved_at` ASC.
+  - Lưu trữ bền vững trên đĩa (`data/leaderboard.json`) và hỗ trợ xuất CLI: `node server.js --export-leaderboard out.json`.
+- **Hệ thống Trợ Năng Toàn Diện (Accessibility)**:
+  - **Đổi phím điều khiển (Key Rebinding)**: Cho phép gán lại phím cho di chuyển (4 hướng), nhảy, lướt, tương tác, tỏa sáng, tạm dừng. Có hệ thống phát hiện xung đột trùng phím tức thì và nút "Khôi phục mặc định". Lưu cấu hình vào `localStorage`.
+  - **Phụ đề & Chỉ báo thị giác (Visual Captions & Indicators)**: Mũi tên chỉ hướng mép màn hình về Bóng Mực gần nhất; Cảnh báo trước 2s khi có gió giật (Đêm 3); Banner đếm ngược 10s cuối; Cảnh báo đèn sắp cạn dầu (<30%).
+  - **Giảm chuyển động (Reduced Motion)**: Tắt hiệu ứng chớp đỏ và rung lắc camera.
+  - **Cỡ chữ lớn (Large Text)**: Phóng to chữ toàn bộ giao diện x1.25, đảm bảo cỡ chữ tối thiểu 18px ở độ phân giải 1280x720.
+- **Tài liệu & Kịch bản Nghiệm thu**:
+  - `LICENSE`: Giấy phép mã nguồn mở MIT.
+  - `CREDITS.md`: Ghi nhận công nghệ, thư viện (Node.js, Three.js r128, Web Audio API), và AI tools.
+  - `docs/retro.md`: Báo cáo đánh giá quy trình tương tác người - AI, phân tích năng suất và sử dụng token.
+  - `docs/demo/README.md`: Kịch bản demo chuẩn xác 3 phút cho buổi nghiệm thu sản phẩm.
+
+---
+
 ## [Phase 3 / Contract v1.2] - 2026-11-20
 
 ### ⚠ Breaking Changes (Thay đổi phá vỡ tương thích)
