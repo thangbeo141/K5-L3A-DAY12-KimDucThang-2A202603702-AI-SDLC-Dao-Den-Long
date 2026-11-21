@@ -1335,6 +1335,7 @@ function handleGameEvent(evt) {
 
 // HUD Updating
 function updateHUD() {
+  if (!engine || engine.state === 'menu') return;
   const flamesStr = '❤️'.repeat(Math.max(0, engine.player.flames));
   document.getElementById('hud-flames').innerText = flamesStr || '💀 Hết';
 
@@ -1520,6 +1521,12 @@ function updateHUD() {
   const details = document.getElementById('overlay-score-details');
   const btnNext = document.getElementById('btn-next-night');
 
+  const mainMenu = document.getElementById('main-menu');
+  if (mainMenu && !mainMenu.classList.contains('hidden')) {
+    overlay.classList.add('hidden');
+    return;
+  }
+
   if (engine.state === 'won') {
     overlay.classList.remove('hidden');
     if (currentNight === 3) {
@@ -1551,6 +1558,9 @@ function startGame(night = 1) {
   if (night === 1) totalGameScore = 0;
   document.getElementById('main-menu').classList.add('hidden');
   document.getElementById('night-select-dialog').classList.add('hidden');
+  document.getElementById('leaderboard-dialog').classList.add('hidden');
+  document.getElementById('message-overlay').classList.add('hidden');
+  document.getElementById('pause-menu').classList.add('hidden');
 
   const intros = {
     1: {
@@ -1575,6 +1585,8 @@ function startGame(night = 1) {
 function startCurrentNight() {
   document.getElementById('night-intro').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('leaderboard-dialog').classList.add('hidden');
+  document.getElementById('message-overlay').classList.add('hidden');
   lastShadeCount = 0;
   const nameInput = document.getElementById('player-name-input');
   if (nameInput) nameInput.disabled = false;
@@ -1612,6 +1624,7 @@ function startCurrentNight() {
 function restartCurrentNight() {
   document.getElementById('pause-menu').classList.add('hidden');
   document.getElementById('message-overlay').classList.add('hidden');
+  document.getElementById('leaderboard-dialog').classList.add('hidden');
   lastShadeCount = 0;
   const nameInput = document.getElementById('player-name-input');
   if (nameInput) nameInput.disabled = false;
@@ -1638,18 +1651,25 @@ function restartCurrentNight() {
 function proceedNextNight() {
   totalGameScore += engine.score;
   document.getElementById('message-overlay').classList.add('hidden');
+  document.getElementById('leaderboard-dialog').classList.add('hidden');
   startGame(currentNight + 1);
 }
 
 function returnToMainMenu() {
+  if (engine) {
+    engine.state = 'menu';
+  }
   document.getElementById('pause-menu').classList.add('hidden');
   document.getElementById('message-overlay').classList.add('hidden');
+  document.getElementById('leaderboard-dialog').classList.add('hidden');
+  document.getElementById('night-select-dialog').classList.add('hidden');
+  document.getElementById('night-intro').classList.add('hidden');
   document.getElementById('hud').classList.add('hidden');
   document.getElementById('main-menu').classList.remove('hidden');
 }
 
 function togglePause() {
-  if (!engine) return;
+  if (!engine || engine.state === 'menu') return;
   if (engine.state === 'playing') {
     engine.state = 'paused';
     document.getElementById('pause-menu').classList.remove('hidden');
@@ -1670,7 +1690,7 @@ function resumeGame() {
 function gameLoop(now) {
   requestAnimationFrame(gameLoop);
 
-  if (!engine || engine.state === 'paused') return;
+  if (!engine || engine.state === 'paused' || engine.state === 'menu') return;
 
   if (now - lastTickTime > 150) {
     lastTickTime = now;
