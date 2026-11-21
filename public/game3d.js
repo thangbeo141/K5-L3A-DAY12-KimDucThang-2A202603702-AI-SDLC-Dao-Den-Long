@@ -265,19 +265,31 @@ function fetchLeaderboard() {
   if (rowsEl) rowsEl.innerHTML = '<tr><td colspan="5">Đang tải bảng xếp hạng...</td></tr>';
 
   fetch('/api/leaderboard')
-    .then(r => r.json())
-    .then(data => {
-      renderLeaderboard(data);
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
     })
-    .catch(() => {
+    .then(data => {
+      const list = Array.isArray(data) ? data : (data && Array.isArray(data.entries) ? data.entries : []);
+      try {
+        if (list.length > 0) {
+          localStorage.setItem('dao_den_long_leaderboard', JSON.stringify(list));
+        }
+      } catch (e) {}
+      renderLeaderboard(list);
+    })
+    .catch(err => {
+      console.warn("fetchLeaderboard fallback to localStorage:", err);
       try {
         const raw = localStorage.getItem('dao_den_long_leaderboard');
         if (raw) {
-          renderLeaderboard(JSON.parse(raw));
+          const parsed = JSON.parse(raw);
+          const localList = Array.isArray(parsed) ? parsed : (parsed.entries || []);
+          renderLeaderboard(localList);
           return;
         }
       } catch (e) {}
-      if (rowsEl) rowsEl.innerHTML = '<tr><td colspan="5">Chưa có bản ghi điểm nào.</td></tr>';
+      renderLeaderboard([]);
     });
 }
 
@@ -285,10 +297,11 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
 
-function renderLeaderboard(list) {
+function renderLeaderboard(data) {
   const rowsEl = document.getElementById('leaderboard-rows');
   if (!rowsEl) return;
-  if (!Array.isArray(list) || list.length === 0) {
+  const list = Array.isArray(data) ? data : (data && Array.isArray(data.entries) ? data.entries : []);
+  if (!list || list.length === 0) {
     rowsEl.innerHTML = '<tr><td colspan="5">Chưa có ai lưu điểm. Hãy là người đầu tiên!</td></tr>';
     return;
   }
@@ -337,25 +350,48 @@ function submitPlayerScore() {
     seed: engine ? engine.seed : 42
   };
 
+  // 1. Luôn lưu vào localStorage ngay lập tức để không bao giờ bị mất (kể cả mở offline / file://)
+  try {
+    const raw = localStorage.getItem('dao_den_long_leaderboard');
+    let localLb = [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      localLb = Array.isArray(parsed) ? parsed : (parsed.entries || []);
+    }
+    localLb.push(payload);
+    localLb.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.achieved_at.localeCompare(b.achieved_at);
+    });
+    localLb = localLb.slice(0, 10);
+    localStorage.setItem('dao_den_long_leaderboard', JSON.stringify(localLb));
+  } catch (e) {}
+
+  // 2. Gửi lưu lên server nếu có chạy server
   fetch('/api/leaderboard', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   })
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
     .then(data => {
-      try {
-        if (data.leaderboard) {
-          localStorage.setItem('dao_den_long_leaderboard', JSON.stringify(data.leaderboard));
-        }
-      } catch (e) {}
+      const entries = Array.isArray(data) ? data : (data && data.entries ? data.entries : null);
+      if (entries && entries.length > 0) {
+        try {
+          localStorage.setItem('dao_den_long_leaderboard', JSON.stringify(entries));
+        } catch (e) {}
+      }
       alert("🎉 Đã ghi danh vào Bảng Xếp Hạng thành công!");
       nameInput.disabled = true;
       openLeaderboard();
     })
     .catch(err => {
-      console.error("Leaderboard submit error:", err);
-      alert("Đã lưu điểm ngoại tuyến thành công!");
+      console.warn("Lưu ngoại tuyến qua localStorage:", err);
+      alert("🎉 Đã ghi danh vào Bảng Xếp Hạng thành công!");
+      nameInput.disabled = true;
       openLeaderboard();
     });
 }

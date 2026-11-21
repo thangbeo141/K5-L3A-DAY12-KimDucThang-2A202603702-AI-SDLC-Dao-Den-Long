@@ -68,7 +68,7 @@ const server = http.createServer((req, res) => {
     if (req.method === 'GET') {
       const lb = getLeaderboard();
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify(lb));
+      return res.end(JSON.stringify(lb.entries));
     }
     if (req.method === 'POST') {
       let body = '';
@@ -98,7 +98,7 @@ const server = http.createServer((req, res) => {
           saveLeaderboard(lb.entries);
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify(lb));
+          return res.end(JSON.stringify({ success: true, entries: lb.entries }));
         } catch (e) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ error: e.message }));
